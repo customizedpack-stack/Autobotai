@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { Monitor, X } from 'lucide-react';
 import { Button } from '../../components/common/Button';
@@ -11,6 +11,9 @@ import { StatusBar } from '../../components/workspace/StatusBar';
 import { ViewportToolbar } from '../../components/workspace/ViewportToolbar';
 import { WorkspaceTopBar } from '../../components/workspace/WorkspaceTopBar';
 import { endControlSession } from '../../features/controls/controlSession';
+import { closeCodeStudioSession, hasUnsavedPrograms, saveAllPrograms, unsavedPrograms } from '../../features/code-studio/programActions';
+import { useCodeStudioStore } from '../../features/code-studio/codeStudioStore';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { saveCurrentProject } from '../../features/projects/workspaceActions';
 import { Viewport } from '../../features/viewport/Viewport';
 import { COMPACT_WORKSPACE_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
@@ -40,12 +43,27 @@ function SmallScreenBanner() {
   );
 }
 
+// Code Studio's editors (Blockly, CodeMirror) load only when Code Studio is opened.
+const CodeStudioPane = lazy(() => import('../../features/code-studio/components/CodeStudioPane'));
+
+function CodeStudioLoading() {
+  return (
+    <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-panel text-xs text-muted" data-testid="code-studio-loading">
+      Loading Code Studio…
+    </section>
+  );
+}
+
 export default function WorkspacePage() {
   const { projectId = '' } = useParams();
   const navigate = useNavigate();
   const project = useProjectStore((s) => s.projects[projectId]);
   const loadedId = useSceneStore((s) => s.projectId);
-  const dirty = useSceneStore((s) => s.dirty);
+  const sceneDirty = useSceneStore((s) => s.dirty);
+  // Unsaved program edits count as unsaved changes too.
+  const programsDirty = useCodeStudioStore((s) => Object.keys(s.drafts).length > 0 && hasUnsavedPrograms());
+  const dirty = sceneDirty || programsDirty;
+  const code = useRobotStateStore((s) => s.mode === 'code');
   const confirmOnLeave = useSettingsStore((s) => s.confirmUnsavedOnLeave);
   const compact = useMediaQuery(COMPACT_WORKSPACE_QUERY);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -55,7 +73,7 @@ export default function WorkspacePage() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       currentLocation.pathname !== nextLocation.pathname &&
-      useSceneStore.getState().dirty &&
+      (useSceneStore.getState().dirty || hasUnsavedPrograms()) &&
       useSettingsStore.getState().confirmUnsavedOnLeave,
   );
 
@@ -63,6 +81,7 @@ export default function WorkspacePage() {
   useEffect(() => {
     if (!project || useSceneStore.getState().projectId === project.id) return;
     endControlSession();
+    closeCodeStudioSession();
     useSceneStore.getState().loadProject(project);
     useSelectionStore.getState().clear();
     useViewportStore.getState().requestView('perspective');
@@ -76,6 +95,7 @@ export default function WorkspacePage() {
   useEffect(
     () => () => {
       endControlSession();
+      closeCodeStudioSession();
       useSceneStore.getState().closeProject();
       useSelectionStore.getState().clear();
       document.body.style.cursor = '';
@@ -118,9 +138,24 @@ export default function WorkspacePage() {
       <div className="relative flex min-h-0 flex-1" data-testid="workspace-main">
         <LeftPanel overlay={compact} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1 bg-viewport" data-testid="viewport">
-            {ready && <Viewport />}
-            <ViewportToolbar />
+          {/* Code Studio: editor beside the SAME viewport element (it is never remounted when the mode changes). */}
+          <div className={code ? 'flex min-h-0 flex-1 flex-col lg:flex-row' : 'flex min-h-0 flex-1'} data-testid="workspace-center">
+            {code && ready && (
+              <Suspense fallback={<CodeStudioLoading />}>
+                <CodeStudioPane />
+              </Suspense>
+            )}
+            <div
+              className={
+                code
+                  ? 'relative h-[38%] min-h-[180px] shrink-0 border-t border-line bg-viewport lg:h-auto lg:w-[40%] lg:border-t-0 lg:border-l'
+                  : 'relative min-h-0 flex-1 bg-viewport'
+              }
+              data-testid="viewport"
+            >
+              {ready && <Viewport />}
+              <ViewportToolbar />
+            </div>
           </div>
           <BottomPanel />
         </div>
@@ -142,7 +177,8 @@ export default function WorkspacePage() {
             <Button
               variant="primary"
               onClick={() => {
-                if (saveCurrentProject()) blocker.proceed?.();
+                const sceneSaved = !useSceneStore.getState().dirty || saveCurrentProject();
+                if (sceneSaved && saveAllPrograms()) blocker.proceed?.();
               }}
             >
               Save and leave
@@ -151,6 +187,11 @@ export default function WorkspacePage() {
         }
       >
         <p className="text-[13px] text-muted">You have changes that are not saved to your local draft yet.</p>
+        {blocker.state === 'blocked' && hasUnsavedPrograms() && (
+          <p className="mt-2 text-[12px] text-muted" data-testid="unsaved-programs">
+            Unsaved programs: {unsavedPrograms().map((p) => p.name).join(', ')}.
+          </p>
+        )}
       </Modal>
     </div>
   );

@@ -13,8 +13,8 @@ import { selectRecentProjects, useProjectStore } from '../../stores/projectStore
 import type { RobotProject } from '../../types/project';
 
 const JOURNEY = [
-  { icon: <Boxes size={15} />, title: 'Design', text: '3D workspace and component library', status: 'Available', tone: 'ok' as const },
-  { icon: <Code2 size={15} />, title: 'Program', text: 'Ready-made actions, blocks and JavaScript', status: 'Phase 4', tone: 'neutral' as const },
+  { icon: <Boxes size={15} />, title: 'Design', text: '3D workspace, parts, joints and motors', status: 'Available', tone: 'ok' as const },
+  { icon: <Code2 size={15} />, title: 'Program', text: 'Blockly blocks and JavaScript in Code Studio', status: 'Available', tone: 'ok' as const },
   { icon: <Play size={15} />, title: 'Simulate', text: 'Realistic physics with MuJoCo', status: 'Phase 5', tone: 'neutral' as const },
   { icon: <Bot size={15} />, title: 'AI Brain', text: 'Talk to your robot, AI vision and autonomy', status: 'Phase J', tone: 'neutral' as const },
 ];

@@ -1,5 +1,5 @@
 import { bus } from '../../core/bus/connectorBus';
-import { useRobotStateStore, type ActuatorRuntime } from '../../stores/robotStateStore';
+import { canDrive, useRobotStateStore, type ActuatorRuntime } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import type { Transform } from '../../types/scene';
 import { measureDriveGeometry, type DriveGeometry } from '../robot-model/drive';
@@ -128,7 +128,7 @@ function stopLoop(): void {
 /** Advance the simulation by dt seconds. Called by the loop; tests may call it directly. */
 export function step(dt: number): void {
   const robot = useRobotStateStore.getState();
-  if (robot.mode !== 'control') return;
+  if (!canDrive(robot.mode)) return;
   simTime += dt;
   const intent = { ...robot.movement.intent };
 

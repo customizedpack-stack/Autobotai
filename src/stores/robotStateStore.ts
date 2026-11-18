@@ -3,7 +3,7 @@ import type { ActuatorCommandState } from '../types/actuator';
 import type { Transform } from '../types/scene';
 
 /**
- * Live robot state while controlling it (Control Mode). This is RUNTIME
+ * Live robot state while controlling it (Control Mode or Code Studio). This is RUNTIME
  * state: it is never saved with the project and never enters undo history.
  * The design pose stays in sceneStore; Reset returns to it, and "Apply
  * current pose to design" copies a live pose into the design as one undo step.
@@ -11,7 +11,23 @@ import type { Transform } from '../types/scene';
  * In Phase 5 the physics engine will own this state (Sim State Stream, C4).
  */
 
-export type WorkspaceMode = 'build' | 'control';
+/**
+ * build:   edit the design.
+ * control: drive with keys and buttons (Phase 3).
+ * code:    Code Studio programs drive the robot (Phase 4). Like Control Mode,
+ *          design editing is locked; unlike it, the keyboard does not drive.
+ */
+export type WorkspaceMode = 'build' | 'control' | 'code';
+
+/** Modes in which C2 accepts movement commands. */
+export function canDrive(mode: WorkspaceMode): boolean {
+  return mode === 'control' || mode === 'code';
+}
+
+/** Modes in which the saved design cannot be edited. */
+export function isDesignLocked(mode: WorkspaceMode): boolean {
+  return mode !== 'build';
+}
 
 export type MovementStatus = 'idle' | 'moving' | 'stopped' | 'limited';
 

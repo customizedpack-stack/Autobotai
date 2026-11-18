@@ -79,3 +79,28 @@
     animation-duration: 0ms !important;
   }
 }
+
+/* Code Studio: Blockly toolbox in the workspace style. */
+.blocklyToolbox,
+.blocklyToolboxDiv {
+  font-family: var(--font-sans);
+}
+.blocklyToolboxCategoryLabel,
+.blocklyTreeLabel {
+  font-size: 12px !important;
+  color: var(--color-ink);
+}
+.blocklyToolboxCategory,
+.blocklyTreeRow {
+  height: 26px !important;
+  line-height: 26px !important;
+  margin-bottom: 1px;
+}
+.blocklyToolboxCategory:hover,
+.blocklyTreeRow:not(.blocklyTreeSelected):hover {
+  background-color: var(--color-raised) !important;
+}
+.blocklyToolboxContents,
+.blocklyToolboxDiv {
+  padding-top: 4px;
+}

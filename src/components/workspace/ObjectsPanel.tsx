@@ -31,7 +31,7 @@ function TreeRow({ object, depth, childCount, expanded, joint, onToggle }: RowPr
   const selectJoint = useSelectionStore((s) => s.selectJoint);
   const setVisible = useSceneStore((s) => s.setVisible);
   const [dropHover, setDropHover] = useState(false);
-  const control = useRobotStateStore((s) => s.mode === 'control');
+  const control = useRobotStateStore((s) => s.mode !== 'build');
   const active = object.id === selectedId;
   const label = COMPONENT_CATEGORIES.find((c) => c.id === object.category)?.label ?? object.category;
 

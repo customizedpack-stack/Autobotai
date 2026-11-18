@@ -191,9 +191,9 @@ export function Viewport() {
     clear();
   }, [clear]);
 
-  const control = useRobotStateStore((s) => s.mode === 'control');
-  // No drops in Control Mode: the design is locked while driving.
-  const draggedComponent = () => (useRobotStateStore.getState().mode === 'control' ? null : useViewportStore.getState().draggingComponentId);
+  const control = useRobotStateStore((s) => s.mode !== 'build');
+  // No drops in Control Mode or Code Studio: the design is locked while driving.
+  const draggedComponent = () => (useRobotStateStore.getState().mode !== 'build' ? null : useViewportStore.getState().draggingComponentId);
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
     const componentId = draggedComponent();

@@ -9,7 +9,8 @@ export type LogSource =
   | 'library'
   | 'storage'
   | 'simulation'
-  | 'control';
+  | 'control'
+  | 'code';
 
 export interface LogEntry {
   id: number;
@@ -17,6 +18,10 @@ export interface LogEntry {
   source: LogSource;
   message: string;
   timestamp: number;
+  /** Code Studio execution session that produced this entry (Phase 4). */
+  sessionId?: string;
+  /** C2 command id, when the entry is about one command. */
+  commandId?: string;
 }
 
 export type LogInput = Omit<LogEntry, 'id' | 'timestamp'>;

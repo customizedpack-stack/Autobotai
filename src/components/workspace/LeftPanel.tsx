@@ -7,6 +7,7 @@ import { useSceneStore } from '../../stores/sceneStore';
 import { useWorkspaceStore, type LeftPanelTab } from '../../stores/workspaceStore';
 import { IconButton } from '../common/Button';
 import { ObjectsPanel } from './ObjectsPanel';
+import { CodeStudioSidePanel } from '../../features/code-studio/components/CodeStudioSidePanel';
 
 const PLACEHOLDERS: Record<LeftPanelTab, string> = {
   components: 'Search components',
@@ -22,7 +23,9 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
   const setTab = useWorkspaceStore((s) => s.setLeftTab);
   const objectCount = useSceneStore((s) => s.objects.length);
   const [query, setQuery] = useState('');
-  const control = useRobotStateStore((s) => s.mode === 'control');
+  const mode = useRobotStateStore((s) => s.mode);
+  const control = mode === 'control';
+  const code = mode === 'code';
   const locked = control && tab !== 'objects';
 
   const rail = (
@@ -30,7 +33,7 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
       <IconButton label="Expand left panel" onClick={() => togglePanel('left')}>
         <PanelLeftOpen size={15} />
       </IconButton>
-      <span className="mt-3 text-[10px] tracking-widest text-faint uppercase [writing-mode:vertical-rl]">Library</span>
+      <span className="mt-3 text-[10px] tracking-widest text-faint uppercase [writing-mode:vertical-rl]">{code ? 'Programs' : 'Library'}</span>
     </div>
   );
   if (collapsed) return rail;
@@ -42,7 +45,19 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
     { id: 'objects', label: `Objects ${objectCount}` },
   ];
 
-  const panel = (
+  const codePanel = (
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-panel" data-testid="left-panel" aria-label="Code Studio panel">
+      <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
+        <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">Code Studio</span>
+        <IconButton label="Collapse left panel" onClick={() => togglePanel('left')}>
+          <PanelLeftClose size={15} />
+        </IconButton>
+      </div>
+      <CodeStudioSidePanel />
+    </aside>
+  );
+
+  const panel = code ? codePanel : (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-panel" data-testid="left-panel" aria-label="Library panel">
       <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
         <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">Explorer</span>

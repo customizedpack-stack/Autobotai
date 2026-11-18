@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Bot, Code2, FolderKanban, GraduationCap, LayoutDashboard, Lock, Play, Plus, Users } from 'lucide-react';
+import { Bot, FolderKanban, GraduationCap, LayoutDashboard, Lock, Play, Plus, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 import { Logo } from '../common/Logo';
@@ -18,7 +18,6 @@ const NAV: readonly NavItem[] = [
 
 /** Modules from the master plan that are not built yet. Shown as roadmap, not as links. */
 const UPCOMING: readonly { label: string; phase: string; icon: ReactNode }[] = [
-  { label: 'Code Studio', phase: 'Phase 4', icon: <Code2 size={16} /> },
   { label: 'Simulation', phase: 'Phase 5', icon: <Play size={16} /> },
   { label: 'AI Assistant', phase: 'Phase J', icon: <Bot size={16} /> },
   { label: 'Learning Center', phase: 'Later', icon: <GraduationCap size={16} /> },
@@ -67,7 +66,9 @@ export function AppSidebar() {
         ))}
       </ul>
       <div className="mt-auto border-t border-line p-4 text-[11px] text-faint">
-        Phase 1 · Foundation build
+        Phase 4 · Code Studio
+        <br />
+        Open a robot and choose Code to program it.
         <br />
         Drafts are saved in this browser only.
       </div>

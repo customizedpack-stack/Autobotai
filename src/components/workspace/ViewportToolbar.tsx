@@ -27,7 +27,8 @@ export function ViewportToolbar() {
   const toggleSpace = useViewportStore((s) => s.toggleTransformSpace);
   const snap = useViewportStore((s) => s.snap);
   const toggleSnap = useViewportStore((s) => s.toggleSnap);
-  const control = useRobotStateStore((s) => s.mode === 'control');
+  // Transform tools are hidden whenever the design is locked (Control Mode or Code Studio).
+  const control = useRobotStateStore((s) => s.mode !== 'build');
   const followRobot = useViewportStore((s) => s.followRobot);
   const toggleFollowRobot = useViewportStore((s) => s.toggleFollowRobot);
 

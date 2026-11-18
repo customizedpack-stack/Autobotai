@@ -1,3 +1,4 @@
+import { canDrive, type WorkspaceMode } from '../../stores/robotStateStore';
 import type { RobotActuator, RobotController } from '../../types/actuator';
 import type { RobotJoint } from '../../types/joint';
 import type { SceneObject } from '../../types/scene';
@@ -24,7 +25,8 @@ export interface CommandPayloads {
   reset: Record<string, never>;
 }
 
-export type CommandSource = 'keyboard' | 'panel' | 'api' | 'bus';
+/** 'code' = a Code Studio program (Phase 4). */
+export type CommandSource = 'keyboard' | 'panel' | 'api' | 'bus' | 'code';
 
 export interface RobotCommand<T extends CommandType = CommandType> {
   id: string;
@@ -43,7 +45,7 @@ export interface CommandValidation {
 
 export interface CommandContext {
   projectId: string | null;
-  mode: 'build' | 'control';
+  mode: WorkspaceMode;
   objects: readonly SceneObject[];
   joints: readonly RobotJoint[];
   actuators: readonly RobotActuator[];
@@ -89,7 +91,7 @@ export function validateCommand(command: RobotCommand, ctx: CommandContext): Com
   const errors: string[] = [];
   if (!TYPES.includes(command.type)) return { valid: false, errors: [`Unknown command type "${String(command.type)}".`] };
   if (!ctx.projectId || command.robotId !== ctx.projectId) errors.push('Target robot is not open in the workspace.');
-  if (command.type !== 'stop' && ctx.mode !== 'control') errors.push('Switch to Control Mode to move the robot.');
+  if (command.type !== 'stop' && !canDrive(ctx.mode)) errors.push('Switch to Control Mode to move the robot.');
   const payload = (command.payload ?? {}) as Record<string, unknown>;
 
   switch (command.type) {

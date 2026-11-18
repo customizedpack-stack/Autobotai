@@ -4,6 +4,7 @@ import type { LogInput } from '../../types/console';
 import type { ActuatorInput, ActuatorPatch, ActuatorType } from '../../types/actuator';
 import type { JointInput, JointPatch, JointType } from '../../types/joint';
 import type { CameraView } from '../../types/viewport';
+import type { ExecutionState } from '../../features/code-studio/runtime/executionTypes';
 
 /**
  * Message map for the Connector Bus (the platform's "nervous system").
@@ -54,7 +55,12 @@ export interface BusChannels {
   'command.accepted': { command: RobotCommand };
   'command.rejected': { command: RobotCommand; errors: string[] };
   'command.status': { commandId: string; type: CommandType; status: CommandStatus; detail?: string };
-  'robot.modeChanged': { mode: 'build' | 'control' };
+  'robot.modeChanged': { mode: 'build' | 'control' | 'code' };
+
+  // ── Code Studio (Phase 4). Programs move the robot only through C2 (source 'code'). ──
+  'codeStudio.programChanged': { programId: string; projectId: string; change: 'created' | 'saved' | 'renamed' | 'deleted' };
+  /** Execution lifecycle of a program run. */
+  'codeStudio.execution': { sessionId: string; programId: string; state: ExecutionState; detail?: string };
 }
 
 export type BusChannel = keyof BusChannels;

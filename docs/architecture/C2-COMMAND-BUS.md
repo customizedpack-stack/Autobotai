@@ -1,6 +1,6 @@
 # C2 — Command Bus
 
-Status: active since Phase 3. Sources: `src/features/controls/` (`commands.ts`, `commandBus.ts`, `movementEngine.ts`, `robotControlApi.ts`, `controlSession.ts`, `keyboardControls.ts`).
+Status: active since Phase 3. Used by Code Studio programs since Phase 4 (source `code`, see `CODE-STUDIO.md`). Sources: `src/features/controls/` (`commands.ts`, `commandBus.ts`, `movementEngine.ts`, `robotControlApi.ts`, `controlSession.ts`, `keyboardControls.ts`).
 
 ## Purpose
 
@@ -43,7 +43,7 @@ Movement engine (60 Hz fixed step, outside React)
 ## Validation (examples of real messages)
 
 - "Target robot is not open in the workspace."
-- "Switch to Control Mode to move the robot." (every command except stop)
+- "Switch to Control Mode to move the robot." (every command except stop, when the workspace is in Build Mode; since Phase 4, Control Mode **and Code Studio** may move the robot: `canDrive(mode)`)
 - "This robot has no drive controller. Use \"Set up differential drive\" first."
 - "Wheel joint … has no motor (missing actuator)." · "Motor \"Left Drive Motor\" is disabled." · "… must be speed-controlled."
 - "speed must be between −1 and 1." · "durationMs must be between 1 and 60000."
@@ -60,6 +60,8 @@ Movement engine (60 Hz fixed step, outside React)
 | `robot.modeChanged` | `{ mode: 'build' \| 'control' }` |
 
 All of them show up in the **Bus Events** tab. Rejections are also written to the console as errors (source `control`).
+
+`RobotCommand.source` is one of `keyboard`, `panel`, `api`, `bus` and, since Phase 4, `code` (a Code Studio program).
 
 ## Robot Control API
 

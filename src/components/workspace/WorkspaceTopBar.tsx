@@ -68,7 +68,7 @@ function SaveState() {
 const MODES = [
   { id: 'build', label: 'Build', icon: <Shapes size={13} />, phase: null, hint: 'Edit the robot design (M)' },
   { id: 'control', label: 'Control', icon: <Gamepad2 size={13} />, phase: null, hint: 'Drive the robot with keys and buttons (M)' },
-  { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: 'Phase 4', hint: '' },
+  { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: null, hint: 'Code Studio: program the robot with blocks or JavaScript' },
   { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: 'Phase 5', hint: '' },
 ] as const;
 
@@ -79,7 +79,7 @@ interface WorkspaceTopBarProps {
 
 export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps) {
   const mode = useRobotStateStore((s) => s.mode);
-  const control = mode === 'control';
+  const control = mode !== 'build';
   const canUndo = useSceneStore((s) => s.past.length > 0) && !control;
   const canRedo = useSceneStore((s) => s.future.length > 0) && !control;
   const dirty = useSceneStore((s) => s.dirty);
@@ -125,7 +125,7 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
               data-testid={`mode-${m.id}`}
               className={cn(
                 'flex h-6 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors',
-                mode === m.id ? (m.id === 'control' ? 'bg-accent text-white' : 'bg-raised text-ink') : 'text-muted hover:text-ink',
+                mode === m.id ? (m.id === 'build' ? 'bg-raised text-ink' : 'bg-accent text-white') : 'text-muted hover:text-ink',
               )}
             >
               {m.icon}

@@ -11,23 +11,49 @@ import { shutdown } from './movementEngine';
  * Mode stops all motion and returns the robot to its design pose.
  */
 
+type SessionEndListener = (reason: SessionEndReason) => void;
+export type SessionEndReason = 'mode-change' | 'project-closed';
+const sessionEndListeners = new Set<SessionEndListener>();
+
+/**
+ * Run code just BEFORE the live robot session ends (mode change, project closed),
+ * so a running Code Studio program can be stopped first. Returns an unsubscribe function.
+ */
+export function onSessionEnd(listener: SessionEndListener): () => void {
+  sessionEndListeners.add(listener);
+  return () => sessionEndListeners.delete(listener);
+}
+
+function notifySessionEnd(reason: SessionEndReason): void {
+  for (const listener of [...sessionEndListeners]) {
+    try {
+      listener(reason);
+    } catch (error) {
+      log.error('control', `Session cleanup failed: ${String(error instanceof Error ? error.message : error)}`);
+    }
+  }
+}
+
+const MODE_MESSAGES: Record<WorkspaceMode, string> = {
+  build: 'Build Mode: editing unlocked. The robot is back in its design pose.',
+  control: 'Control Mode: keyboard and buttons now drive the robot. Editing is locked. Kinematic simulation (physics arrives in Phase 5).',
+  code: 'Code Studio: programs drive the robot. Editing is locked. Kinematic simulation (physics arrives in Phase 5).',
+};
+
 export function setWorkspaceMode(mode: WorkspaceMode): void {
   const robot = useRobotStateStore.getState();
   if (robot.mode === mode) return;
+  notifySessionEnd('mode-change');
   shutdown();
   robot.resetRuntime();
   robot.setMode(mode);
   bus.publish('robot.modeChanged', { mode });
-  log.info(
-    'control',
-    mode === 'control'
-      ? 'Control Mode: keyboard and buttons now drive the robot. Editing is locked. Kinematic simulation (physics arrives in Phase 5).'
-      : 'Build Mode: editing unlocked. The robot is back in its design pose.',
-  );
+  log.info('control', MODE_MESSAGES[mode]);
 }
 
+/** M key: Build ↔ Control. From Code Studio it returns to Build Mode. */
 export function toggleWorkspaceMode(): void {
-  setWorkspaceMode(useRobotStateStore.getState().mode === 'control' ? 'build' : 'control');
+  setWorkspaceMode(useRobotStateStore.getState().mode === 'build' ? 'control' : 'build');
 }
 
 /** Copy the live (driven) pose of moved components into the design, as ONE undo step. */
@@ -46,6 +72,7 @@ export function applyPoseToDesign(): boolean {
 
 /** Leave Control Mode and clear live state (used when a project closes). */
 export function endControlSession(): void {
+  notifySessionEnd('project-closed');
   shutdown();
   const robot = useRobotStateStore.getState();
   robot.resetRuntime();

@@ -89,7 +89,7 @@ export function CameraRig() {
 
     // Follow the driven robot: shift camera and target by the robot's movement.
     const robot = useRobotStateStore.getState();
-    const followId = robot.mode === 'control' && useViewportStore.getState().followRobot ? Object.keys(robot.rootPoses)[0] : undefined;
+    const followId = robot.mode !== 'build' && useViewportStore.getState().followRobot ? Object.keys(robot.rootPoses)[0] : undefined;
     const followPos = followId ? robot.rootPoses[followId]!.position : null;
     if (followPos && followed.current && !anim.current) {
       const d = new Vector3(followPos[0] - followed.current[0], 0, followPos[2] - followed.current[2]);
