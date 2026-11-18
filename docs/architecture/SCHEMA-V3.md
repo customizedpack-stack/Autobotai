@@ -76,3 +76,21 @@ Y-up, meters, radians. In the root part's frame, **forward = +X**, up = +Y, **le
 ## Tests
 
 `src/features/robot-model/schemaV3.test.ts`, `actuators.test.ts`, `schema.test.ts`, and the "A schema v2 project is upgraded to v3 and can drive" step in `tests/e2e/control.e2e.mjs`.
+
+## Phase 5 addition: optional part physics (no version change)
+
+Phase 5 adds one **optional** field to scene objects. `schemaVersion` stays 3 and the browser store key is unchanged.
+
+```ts
+physics?: {
+  mass?: number;        // kg, 0.001 … 10000. Absent: density × volume
+  density?: number;     // kg/m³, 1 … 30000. Absent: category default
+  friction?: number;    // 0 … 2. Absent: category default (caster balls 0.02)
+  restitution?: number; // 0 … 1. Absent: 0.05
+  collision?: boolean;  // false = mass but no collision shape. Absent: true
+}
+```
+
+- Projects without the field load exactly as before; no field is added on load or save.
+- On load (`normalizeObject`), valid values are kept and invalid ones are dropped with a warning. A project never fails to open because of physics values.
+- Tests: `src/features/physics/tests/partPhysicsPersistence.test.ts` and `rigidBodyFactory.test.ts`.

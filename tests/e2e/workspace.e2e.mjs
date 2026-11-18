@@ -237,7 +237,7 @@ try {
     await page.getByRole('tab', { name: /Bus Events/ }).click();
     await page.getByTestId('events-log').getByText('scene.changed').first().waitFor();
     await page.getByRole('tab', { name: /Status/ }).click();
-    await page.getByTestId('status-view').getByText('Not connected').waitFor();
+    await page.getByTestId('status-view').getByText('Rapier 0.21 · stopped').waitFor();
     await page.screenshot({ path: `${SHOTS}/07-status-panel.png` });
     await page.getByRole('tab', { name: /Console/ }).click();
   });

@@ -2,7 +2,17 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 4 — Code Studio** (on top of Phases 1–3). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot with the keyboard or on-screen buttons, and now **program it** with Blockly blocks or JavaScript. Programs run in a secure sandbox and control the robot through the same validated commands as the keyboard. The simulation is kinematic for now; physics arrives in Phase 5 (see `docs/`).
+**Current status: Phase 5 — Physics Simulation** (on top of Phases 1–4). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot with the keyboard or on-screen buttons, program it with Blockly blocks or JavaScript, and now run it in a **real physics simulation** (Rapier): mass, gravity, friction, motors with torque limits and collisions. The kinematic engine from Phase 3 is still there and is the default (see `docs/`).
+
+## Physics simulation
+
+1. Open a robot and click **Simulate** in the top bar (or **Control**, then choose **Physics** in the Simulation panel on the right).
+2. The banner at the bottom of the 3D view shows which engine moves the robot: "Kinematic Simulation — No Physics" or "Physics Simulation — Running".
+3. Use **Start**, **Pause**, **Resume**, **Stop** and **Reset**. Switch **Gravity** off and on, pick an **Environment** (empty floor or obstacle course), and turn on **Debug view** to see collision shapes, joints, velocities and contacts.
+4. Drive with the keys, or run a Code Studio program. Pausing the simulation pauses the program.
+5. In Build Mode, the **Physics** section of the inspector sets mass, friction, bounciness and collision for each part (undoable, saved with the project). Empty values use sensible defaults.
+
+The physics engine is downloaded only the first time you choose Physics. Details: `docs/architecture/PHASE-5-PHYSICS-ENGINE.md` and `docs/architecture/PHYSICS-ROBOT-INTEGRATION.md`.
 
 ## Programming a robot (Code Studio)
 
@@ -69,12 +79,12 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics (needs `npm run build` first and Chrome installed) |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology
 
-React 19 · TypeScript (strict) · Vite · Three.js · React Three Fiber · drei · Zustand · Tailwind CSS 4 · Lucide icons · Blockly · CodeMirror 6 · Vitest · Playwright.
+React 19 · TypeScript (strict) · Vite · Three.js · React Three Fiber · drei · Zustand · Tailwind CSS 4 · Lucide icons · Blockly · CodeMirror 6 · Rapier 3D (physics) · Vitest · Playwright.
 
 ## Project layout
 
@@ -86,6 +96,7 @@ src/
     robot-model/        Robot model: hierarchy, transforms, joints, actuators, drive geometry, kinematics, schema v3, C1 connector
     controls/           C2 Command Bus, movement engine, differential drive, keyboard, Robot Control API
     code-studio/        Blockly and JavaScript programming, sandboxed execution, program storage
+    physics/            Rapier physics: world, bodies, joints, motors, simulation manager, debug view
     builder/            Drop placement rules for the Robot Builder
     viewport/           Three.js scene, camera views, gizmos, joint markers, drag-and-drop
     inspector/          Properties panel
@@ -93,13 +104,13 @@ src/
     robot-library/      Robot categories and templates
     projects/           Project creation and editor commands
     console/            Console, bus events and status views
-    simulation/ sensors/ robot-formats/
+    sensors/ robot-formats/
                         Reserved boundaries for later phases (README inside each)
   core/bus/       Connector Bus: typed message system between modules
   stores/         Zustand stores (project, scene + history, robot runtime state, selection, workspace, viewport, console, settings)
   types/          Shared TypeScript model (robot project, scene objects, console, viewport)
   hooks/ utils/   Shortcuts and helpers
-docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3, Code Studio and its sandbox) and test screenshots
+docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3, Code Studio and its sandbox, physics engine and integration) and test screenshots
 tests/e2e/        Browser test suites (one per phase)
 ```
 
