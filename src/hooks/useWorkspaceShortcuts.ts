@@ -39,9 +39,14 @@ export function useWorkspaceShortcuts(enabled: boolean): void {
         event.preventDefault();
         deleteSelected();
       } else if (key === 'escape') {
-        useSelectionStore.getState().select(null);
+        useSelectionStore.getState().clear();
       } else if (!mod && key === 'f') {
         useViewportStore.getState().requestFrame();
+      } else if (!mod && !event.altKey && ['q', 'w', 'e', 'r'].includes(key)) {
+        const modes = { q: 'select', w: 'translate', e: 'rotate', r: 'scale' } as const;
+        useViewportStore.getState().setTransformMode(modes[key as keyof typeof modes]);
+      } else if (!mod && key === 's') {
+        useViewportStore.getState().toggleSnap();
       } else if (!mod && !event.altKey) {
         const view = CAMERA_VIEWS.find((v) => v.shortcut === key);
         if (view) useViewportStore.getState().requestView(view.id);

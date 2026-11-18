@@ -40,7 +40,7 @@ function ProjectNameField({ name }: { name: string }) {
       aria-label="Project name"
       data-testid="project-name"
       maxLength={60}
-      className="h-7 w-48 min-w-0 rounded-md border border-transparent bg-transparent px-2 text-[13px] font-semibold outline-none hover:border-line focus:border-accent focus:bg-app"
+      className="h-7 w-28 min-w-0 rounded-md sm:w-48 border border-transparent bg-transparent px-2 text-[13px] font-semibold outline-none hover:border-line focus:border-accent focus:bg-app"
     />
   );
 }
@@ -55,7 +55,7 @@ function SaveState() {
     return () => window.clearInterval(timer);
   }, []);
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-muted" data-testid="save-state">
+    <span className="hidden items-center gap-1.5 text-[11px] whitespace-nowrap text-muted sm:flex" data-testid="save-state">
       <span className={cn('h-1.5 w-1.5 rounded-full', dirty ? 'bg-warn' : 'bg-ok')} />
       {dirty ? 'Unsaved changes' : `Saved ${formatRelativeTime(savedAt).toLowerCase()}`}
     </span>
@@ -125,7 +125,8 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
         <IconButton label="Redo" shortcut="Ctrl+Shift+Z" onClick={redo} disabled={!canRedo} data-testid="redo">
           <Redo2 size={15} />
         </IconButton>
-        <div className="mx-1 h-5 w-px bg-line" />
+        <div className="mx-1 hidden h-5 w-px bg-line sm:block" />
+        <div className="hidden items-center gap-0.5 sm:flex">
         <IconButton label="Toggle library panel" active={!collapsed.left} onClick={() => togglePanel('left')}>
           <PanelLeft size={15} />
         </IconButton>
@@ -135,6 +136,7 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
         <IconButton label="Toggle properties panel" active={!collapsed.right} onClick={() => togglePanel('right')}>
           <PanelRight size={15} />
         </IconButton>
+        </div>
         <IconButton label="Settings" onClick={onOpenSettings}>
           <Settings size={15} />
         </IconButton>

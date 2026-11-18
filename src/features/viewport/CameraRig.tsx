@@ -4,8 +4,8 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useViewportStore } from '../../stores/viewportStore';
-import { sceneBounds } from '../../utils/math';
-import { cameraPosition, framingDistance } from './cameraPresets';
+import { worldSceneBounds } from '../robot-model/transforms';
+import { cameraPosition, classifyView, framingDistance } from './cameraPresets';
 
 interface Animation {
   fromPos: Vector3;
@@ -16,37 +16,36 @@ interface Animation {
 }
 
 const DURATION = 0.45;
+/** Frames without movement before the camera counts as settled. */
+const SETTLE_FRAMES = 4;
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
 /**
- * Moves the camera in response to view and frame requests from the viewport
- * store. Only reads stores; it never writes editor state except to cancel.
+ * Moves the camera for view and frame requests, and keeps the view label in
+ * sync with the real camera. Whatever moves the camera (toolbar buttons, the
+ * orientation gizmo, orbit drags, damping), once it settles its direction is
+ * classified as a standard view or "custom" and written to the one
+ * `viewportStore.activeView`. There is no second camera-state system.
  */
-export function CameraRig({ animationRef, onUserMove }: { animationRef: React.RefObject<boolean>; onUserMove: () => void }) {
+export function CameraRig() {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   const viewRequest = useViewportStore((s) => s.viewRequest);
   const frameRequest = useViewportStore((s) => s.frameRequest);
   const anim = useRef<Animation | null>(null);
+  const motion = useRef({ pos: new Vector3(), target: new Vector3(), moving: false, still: 0 });
 
   const fov = camera instanceof PerspectiveCamera ? camera.fov : 45;
 
   const start = (toPos: Vector3, toTarget: Vector3) => {
     if (!controls) return;
-    anim.current = {
-      fromPos: camera.position.clone(),
-      toPos,
-      fromTarget: controls.target.clone(),
-      toTarget,
-      t: 0,
-    };
-    animationRef.current = true;
+    anim.current = { fromPos: camera.position.clone(), toPos, fromTarget: controls.target.clone(), toTarget, t: 0 };
   };
 
   // Preset view (Perspective, Front, Back, Left, Right, Top).
   useEffect(() => {
     if (!viewRequest || !controls) return;
-    const bounds = sceneBounds(useSceneStore.getState().objects);
+    const bounds = worldSceneBounds(useSceneStore.getState().objects);
     const distance = framingDistance(bounds.radius, fov);
     const pos = cameraPosition(bounds.center, viewRequest.view, distance);
     start(new Vector3(...pos), new Vector3(...bounds.center));
@@ -56,7 +55,7 @@ export function CameraRig({ animationRef, onUserMove }: { animationRef: React.Re
   // Frame all objects, keeping the current viewing direction.
   useEffect(() => {
     if (frameRequest === 0 || !controls) return;
-    const bounds = sceneBounds(useSceneStore.getState().objects);
+    const bounds = worldSceneBounds(useSceneStore.getState().objects);
     const target = new Vector3(...bounds.center);
     const direction = camera.position.clone().sub(controls.target);
     if (direction.lengthSq() < 1e-6) direction.set(0.62, 0.48, 0.62);
@@ -66,44 +65,48 @@ export function CameraRig({ animationRef, onUserMove }: { animationRef: React.Re
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameRequest, controls]);
 
-  useFrame((_, delta) => {
-    const a = anim.current;
-    if (!a || !controls) return;
-    a.t = Math.min(1, a.t + delta / DURATION);
-    const e = easeOutCubic(a.t);
-    camera.position.lerpVectors(a.fromPos, a.toPos, e);
-    controls.target.lerpVectors(a.fromTarget, a.toTarget, e);
-    controls.update();
-    if (a.t >= 1) {
-      anim.current = null;
-      animationRef.current = false;
-    }
-  });
-
-  // A user drag interrupts any animation. Only a drag that really moved the
-  // camera switches the view label to "Custom" (a plain click does not).
+  // A user drag interrupts a running animation.
   useEffect(() => {
     if (!controls) return;
-    const startPos = new Vector3();
-    const startTarget = new Vector3();
-    const onStart = () => {
+    const cancel = () => {
       anim.current = null;
-      animationRef.current = false;
-      startPos.copy(camera.position);
-      startTarget.copy(controls.target);
     };
-    const onEnd = () => {
-      if (camera.position.distanceTo(startPos) > 1e-4 || controls.target.distanceTo(startTarget) > 1e-4) {
-        onUserMove();
-      }
-    };
-    controls.addEventListener('start', onStart);
-    controls.addEventListener('end', onEnd);
-    return () => {
-      controls.removeEventListener('start', onStart);
-      controls.removeEventListener('end', onEnd);
-    };
-  }, [controls, camera, animationRef, onUserMove]);
+    controls.addEventListener('start', cancel);
+    return () => controls.removeEventListener('start', cancel);
+  }, [controls]);
+
+  useFrame((_, delta) => {
+    if (!controls) return;
+    const a = anim.current;
+    if (a) {
+      a.t = Math.min(1, a.t + delta / DURATION);
+      const e = easeOutCubic(a.t);
+      camera.position.lerpVectors(a.fromPos, a.toPos, e);
+      controls.target.lerpVectors(a.fromTarget, a.toTarget, e);
+      controls.update();
+      if (a.t >= 1) anim.current = null;
+    }
+
+    // Settle detection for the view label.
+    const m = motion.current;
+    // Damping keeps the camera drifting by ever smaller amounts; movement below
+    // 0.01 % of the viewing distance per frame counts as standing still.
+    const eps = (camera.position.distanceTo(controls.target) * 1e-4) ** 2;
+    const moved = camera.position.distanceToSquared(m.pos) > eps || controls.target.distanceToSquared(m.target) > eps;
+    m.pos.copy(camera.position);
+    m.target.copy(controls.target);
+    if (moved) {
+      m.moving = true;
+      m.still = 0;
+      return;
+    }
+    if (!m.moving || anim.current) return;
+    m.still += 1;
+    if (m.still < SETTLE_FRAMES) return;
+    m.moving = false;
+    const d = camera.position.clone().sub(controls.target);
+    useViewportStore.getState().setActiveView(classifyView([d.x, d.y, d.z]));
+  });
 
   return null;
 }

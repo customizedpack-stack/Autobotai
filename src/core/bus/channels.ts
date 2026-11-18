@@ -1,4 +1,5 @@
 import type { LogInput } from '../../types/console';
+import type { JointInput, JointPatch, JointType } from '../../types/joint';
 import type { CameraView } from '../../types/viewport';
 
 /**
@@ -19,6 +20,23 @@ export interface BusChannels {
   'scene.changed': { reason: string; objectCount: number };
   'selection.changed': { objectId: string | null };
   'viewport.viewChanged': { view: CameraView };
+
+  // ── C1 Robot Model Connector: events (published after a change is applied) ──
+  'robotModel.componentAdded': { componentId: string; name: string; parentId: string | null };
+  'robotModel.componentRemoved': { componentId: string; name: string; reparentedChildren: string[]; removedJoints: string[] };
+  'robotModel.componentReparented': { componentId: string; from: string | null; to: string | null };
+  'robotModel.jointCreated': { jointId: string; type: JointType; parentId: string; childId: string };
+  'robotModel.jointUpdated': { jointId: string; changed: string[] };
+  'robotModel.jointDeleted': { jointId: string; parentId: string; childId: string };
+  'robotModel.rejected': { command: string; errors: string[] };
+  'robotModel.changed': { reason: string; componentCount: number; jointCount: number };
+
+  // ── C1 Robot Model Connector: requests (any module may ask for a change) ──
+  'robotModel.request.reparent': { componentId: string; parentId: string | null };
+  'robotModel.request.removeComponent': { componentId: string };
+  'robotModel.request.createJoint': JointInput;
+  'robotModel.request.updateJoint': { jointId: string; patch: JointPatch };
+  'robotModel.request.deleteJoint': { jointId: string };
 }
 
 export type BusChannel = keyof BusChannels;
@@ -30,9 +48,9 @@ export interface FutureConnector {
   phase: string;
 }
 
-/** Connectors from the master build plan, not active yet in Phase 1. */
+/** Connectors from the master build plan and when each becomes active. */
 export const FUTURE_CONNECTORS: readonly FutureConnector[] = [
-  { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, joints, motors, sensors', phase: 'Phase 2 / B' },
+  { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, hierarchy, joints', phase: 'Active (Phase 2)' },
   { code: 'C2', name: 'Command Bus', carries: 'Movement commands: drive, turn, set joint, stop', phase: 'Phase 3 / D' },
   { code: 'C3', name: 'Sensor Stream', carries: 'Distance, IMU, camera and lidar readings', phase: 'Phase 6 / F' },
   { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 / E' },

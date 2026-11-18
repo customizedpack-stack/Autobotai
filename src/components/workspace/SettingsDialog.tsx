@@ -89,7 +89,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
         <Toggle label="Viewport hints" checked={s.showShortcutHints} onChange={s.setShowShortcutHints} />
       </SettingRow>
       <div className="mt-3 rounded-md bg-app p-2.5 text-[11px] leading-relaxed text-faint">
-        Shortcuts: Ctrl+S save · Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+D duplicate · Del delete · Esc deselect · 1–6 camera views · F frame all
+        Shortcuts: Ctrl+S save · Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+D duplicate · Del delete part or joint · Esc deselect · Q select · W move · E rotate · R scale · S snap · 1–6 camera views · F frame all
       </div>
     </Modal>
   );

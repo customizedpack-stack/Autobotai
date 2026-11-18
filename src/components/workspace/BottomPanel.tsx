@@ -25,7 +25,7 @@ export function BottomPanel() {
 
   return (
     <section
-      className={collapsed ? 'shrink-0 border-t border-line bg-panel' : 'flex h-56 shrink-0 flex-col border-t border-line bg-panel'}
+      className={collapsed ? 'shrink-0 border-t border-line bg-panel' : 'flex h-40 shrink-0 flex-col border-t border-line bg-panel lg:h-56'}
       data-testid={collapsed ? 'bottom-panel-collapsed' : 'bottom-panel'}
       aria-label="Console panel"
     >
@@ -40,7 +40,11 @@ export function BottomPanel() {
           }}
         />
         <div className="flex items-center gap-2">
-          {!collapsed && tab === 'console' && <ConsoleLevelFilters />}
+          {!collapsed && tab === 'console' && (
+            <div className="hidden md:block">
+              <ConsoleLevelFilters />
+            </div>
+          )}
           {!collapsed && tab !== 'status' && (
             <IconButton label={tab === 'console' ? 'Clear console' : 'Clear events'} onClick={tab === 'console' ? clear : clearEvents}>
               <Trash size={13} />

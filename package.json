@@ -1,8 +1,11 @@
 {
   "name": "auto-robots-ai",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,7 +14,7 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "vitest run",
-    "test:e2e": "node tests/e2e/workspace.e2e.mjs",
+    "test:e2e": "node tests/e2e/run-all.mjs",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {

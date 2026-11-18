@@ -37,3 +37,21 @@ export function cameraPosition(target: Vec3, view: CameraView, distance: number)
   const d = viewDirection(view);
   return [target[0] + d[0] * distance, target[1] + d[1] * distance, target[2] + d[2] * distance];
 }
+
+const STANDARD_VIEWS: readonly CameraView[] = ['perspective', 'front', 'back', 'left', 'right', 'top'];
+
+/**
+ * Name the standard view a camera direction matches (target -> camera),
+ * or 'custom' when it matches none. Used to keep the toolbar label in sync
+ * whatever moved the camera: view buttons, the orientation gizmo or a drag.
+ */
+export function classifyView(direction: Vec3, tolerance = 0.9995): CameraView | 'custom' {
+  const length = Math.hypot(...direction);
+  if (length < 1e-9) return 'custom';
+  const d: Vec3 = [direction[0] / length, direction[1] / length, direction[2] / length];
+  for (const view of STANDARD_VIEWS) {
+    const v = viewDirection(view);
+    if (d[0] * v[0] + d[1] * v[1] + d[2] * v[2] >= tolerance) return view;
+  }
+  return 'custom';
+}

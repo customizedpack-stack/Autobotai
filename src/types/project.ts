@@ -1,8 +1,14 @@
+import type { RobotJoint } from './joint';
 import type { SceneObject } from './scene';
 
 export type RobotCategory = 'mobile' | 'arm' | 'humanoid' | 'drone' | 'industrial' | 'quadruped';
 
-export const PROJECT_SCHEMA_VERSION = 1;
+/**
+ * Robot configuration schema version.
+ * v1 (Phase 1): flat objects, world transforms, no joints.
+ * v2 (Phase 2): component hierarchy with local transforms, and joints.
+ */
+export const PROJECT_SCHEMA_VERSION = 2;
 
 export interface RobotProject {
   id: string;
@@ -11,6 +17,7 @@ export interface RobotProject {
   templateId: string;
   schemaVersion: number;
   objects: SceneObject[];
+  joints: RobotJoint[];
   createdAt: string;
   updatedAt: string;
   /** Last time the draft was explicitly saved in this browser. */

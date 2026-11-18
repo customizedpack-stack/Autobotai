@@ -15,11 +15,11 @@ export function StatusBar() {
       </span>
       <span>{objects.length} objects</span>
       <span className="truncate">Selected: {selected ? selected.name : 'none'}</span>
-      <span className="ml-auto flex items-center gap-1.5">
+      <span className="ml-auto hidden items-center gap-1.5 md:flex">
         <span className="h-1.5 w-1.5 rounded-full bg-faint" /> Simulation: not connected (Phase 5)
       </span>
       <span className={cn(dirty ? 'text-warn' : 'text-muted')}>{dirty ? 'Draft: unsaved' : 'Draft: saved locally'}</span>
-      <span className="text-faint">Phase 1</span>
+      <span className="hidden text-faint sm:inline">Phase 2</span>
     </footer>
   );
 }

@@ -2,6 +2,8 @@
 
 Status: approved plan, implemented 18 Nov 2026.
 
+> **Updated in Phase 2:** routing moved to React Router's data router (needed for `useBlocker`); demo builds use `createMemoryRouter`. The scene model is now schema v2 with a component hierarchy, local transforms and joints (see `SCHEMA-V2.md`). Structural edits go through the C1 Robot Model Connector (see `C1-ROBOT-MODEL-CONNECTOR.md`). `SceneObjectMesh` was replaced by `SceneObjectNode` (nested rendering).
+
 ## How Phase 1 maps to the master build plan
 
 | Master plan | Covered in Phase 1 |

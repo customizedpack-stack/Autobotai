@@ -58,10 +58,10 @@ Screenshots from the run are in `docs/testing/screenshots/`.
 ## 5. Known limitations
 
 - Drafts live in one browser only. Clearing site data deletes them. Cloud storage is Phase 8.
-- Objects are placeholder primitives with no mass, joints or behavior. No drag-and-drop or move gizmo yet (Phase 2).
-- The browser Back button does not show the unsaved-changes dialog; the in-app back button and closing the tab do.
-- The workspace is desktop-first (1280 px+). Smaller screens show a notice with "Continue anyway".
-- Clicking the orientation gizmo moves the camera but the view label does not change.
+- Objects are placeholder primitives with no mass, joints or behavior. No drag-and-drop or move gizmo yet (Phase 2). → *Resolved in Phase 2.*
+- ~~The browser Back button does not show the unsaved-changes dialog.~~ → *Fixed, see section 9.*
+- ~~The workspace is desktop-first (1280 px+). Smaller screens show a notice with "Continue anyway".~~ → *Improved, see section 9.*
+- ~~Clicking the orientation gizmo moves the camera but the view label does not change.~~ → *Fixed, see section 9.*
 - Rendering was tested in headless Chrome with software WebGL. Please also check it manually in your own browser.
 
 ## 6. Manual testing instructions
@@ -165,3 +165,25 @@ Phase 2 will not start until you approve.
 - tests/e2e/workspace.e2e.mjs
 
 Also: README.md, package.json, vite.config.ts, tsconfig.app.json, index.html, public/favicon.svg, .gitignore
+
+## 9. Corrections delivered on 18 Nov 2026 (with Phase 2)
+
+| # | Issue | Fix | Files |
+| --- | --- | --- | --- |
+| 1 | Browser Back / Forward did not ask about unsaved changes | Switched to React Router's data router (`createBrowserRouter`; demo builds use `createMemoryRouter`), which is required for `useBlocker`. One blocker in the workspace now guards in-app links, the back arrow, browser Back and browser Forward with a single dialog: **Save and leave**, **Discard changes and leave**, **Cancel**. The `beforeunload` guard for closing or reloading the tab is unchanged. | `src/app/App.tsx`, `src/app/routes/WorkspacePage.tsx` |
+| 2 | Orientation gizmo did not update the view label | `CameraRig` now watches the real camera. When it settles (after a button, a gizmo click, an orbit drag or damping), its direction is matched against the six standard views, otherwise "Custom view". It writes the existing `viewportStore.activeView`; there is no second camera state. A relative movement threshold avoids waiting forever on damping drift. | `src/features/viewport/CameraRig.tsx`, `cameraPresets.ts` (`classifyView`), `src/stores/viewportStore.ts` |
+| 3 | README claimed Node 20+ | Checked every dependency's `engines` field in `package-lock.json`. The binding limits come from Vitest and jsdom: Node **^22.22.2, ^24.15.0 or ≥26**. Vite alone accepts 20.19+. `package.json` now has an `engines` field; `package-lock.json` was regenerated with `--package-lock-only` (no dependency changes). Only Node 22.23.5 is verified. | `package.json`, `package-lock.json`, `README.md` |
+| 4 | Workspace broke below 1280 px | Below 1024 px the side panels start closed and open as slide-over drawers on top of the viewport (the viewport keeps its size; click outside to close). The viewport toolbar wraps, secondary labels hide on small screens, the console is shorter, and the blocking full-screen notice became a slim dismissible banner under 768 px. The desktop layout is unchanged. | `WorkspacePage.tsx`, `LeftPanel.tsx`, `RightPanel.tsx`, `WorkspaceTopBar.tsx`, `ViewportToolbar.tsx`, `BottomPanel.tsx`, `StatusBar.tsx`, `src/hooks/useMediaQuery.ts` |
+
+### Regression results after the corrections (all actually run, 18 Nov 2026)
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass |
+| `npm run lint` | Pass, 0 warnings |
+| `npm run test` | 49 / 49 pass (the 15 Phase 1 tests are unchanged and still pass) |
+| `npm run build` | Pass |
+| Original Phase 1 browser journey (`tests/e2e/workspace.e2e.mjs`, unchanged) | 21 / 21 steps, 0 console errors |
+| New corrections suite (`tests/e2e/corrections.e2e.mjs`) | 20 / 20 steps, 0 console errors |
+
+The corrections suite covers: Back with Cancel, Back with Discard, Forward after discard, Back with Save, Forward protection, `beforeunload` still active, single dialog for the in-app arrow, toolbar/label agreement, gizmo Y → Top view, gizmo X → Right view, orbit → Custom view, desktop layout unchanged at 1440 px, drawers at 900 px and 600 px without resizing the viewport, no horizontal overflow or clipped toolbar, the small-screen banner, and restoring the desktop layout.

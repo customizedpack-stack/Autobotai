@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { useViewportStore } from '../../stores/viewportStore';
 import { addComponent } from '../projects/workspaceActions';
+import { COMPONENT_DRAG_TYPE } from '../viewport/dragTypes';
 import { COMPONENT_CATEGORIES, searchComponents, type ComponentDefinition } from './catalog';
 import { cn } from '../../utils/cn';
 
@@ -58,8 +60,15 @@ export function ComponentLibraryPanel({ query }: { query: string }) {
                   <li key={component.id}>
                     <button
                       type="button"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData(COMPONENT_DRAG_TYPE, component.id);
+                        event.dataTransfer.effectAllowed = 'copy';
+                        useViewportStore.getState().setDraggingComponent(component.id);
+                      }}
+                      onDragEnd={() => useViewportStore.getState().setDraggingComponent(null)}
                       onClick={() => addComponent(component.id)}
-                      title={`Add ${component.name} to the scene`}
+                      title={`Click to add at the center, or drag into the 3D view. Drop it on a part to attach it.`}
                       data-testid={`component-${component.id}`}
                       className={cn(
                         'group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-raised',
@@ -80,7 +89,7 @@ export function ComponentLibraryPanel({ query }: { query: string }) {
         );
       })}
       <p className="px-3 pt-3 text-[10.5px] leading-relaxed text-faint">
-        Components are placeholder shapes in Phase 1. Drag-and-drop placement and attachment arrive in Phase 2.
+        Click a component to add it at the center, or drag it into the 3D view. Drop it on a part to attach it to that part.
       </p>
     </div>
   );

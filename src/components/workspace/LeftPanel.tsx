@@ -14,7 +14,7 @@ const PLACEHOLDERS: Record<LeftPanelTab, string> = {
   objects: 'Search scene objects',
 };
 
-export function LeftPanel() {
+export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
   const collapsed = useWorkspaceStore((s) => s.collapsed.left);
   const togglePanel = useWorkspaceStore((s) => s.togglePanel);
   const tab = useWorkspaceStore((s) => s.leftTab);
@@ -22,16 +22,15 @@ export function LeftPanel() {
   const objectCount = useSceneStore((s) => s.objects.length);
   const [query, setQuery] = useState('');
 
-  if (collapsed) {
-    return (
-      <div className="flex w-9 shrink-0 flex-col items-center border-r border-line bg-panel py-1.5" data-testid="left-panel-collapsed">
-        <IconButton label="Expand left panel" onClick={() => togglePanel('left')}>
-          <PanelLeftOpen size={15} />
-        </IconButton>
-        <span className="mt-3 text-[10px] tracking-widest text-faint uppercase [writing-mode:vertical-rl]">Library</span>
-      </div>
-    );
-  }
+  const rail = (
+    <div className="flex w-9 shrink-0 flex-col items-center border-r border-line bg-panel py-1.5" data-testid="left-panel-collapsed">
+      <IconButton label="Expand left panel" onClick={() => togglePanel('left')}>
+        <PanelLeftOpen size={15} />
+      </IconButton>
+      <span className="mt-3 text-[10px] tracking-widest text-faint uppercase [writing-mode:vertical-rl]">Library</span>
+    </div>
+  );
+  if (collapsed) return rail;
 
   const tabs: { id: LeftPanelTab; label: string }[] = [
     { id: 'components', label: 'Components' },
@@ -40,8 +39,8 @@ export function LeftPanel() {
     { id: 'objects', label: `Objects ${objectCount}` },
   ];
 
-  return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-panel" data-testid="left-panel" aria-label="Library panel">
+  const panel = (
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-panel" data-testid="left-panel" aria-label="Library panel">
       <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
         <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">Explorer</span>
         <IconButton label="Collapse left panel" onClick={() => togglePanel('left')}>
@@ -90,5 +89,16 @@ export function LeftPanel() {
         {tab === 'objects' && <ObjectsPanel query={query} />}
       </div>
     </aside>
+  );
+  if (!overlay) return panel;
+  // Compact screens: the panel slides over the viewport instead of shrinking it.
+  return (
+    <>
+      {rail}
+      <div className="absolute inset-0 z-20 bg-black/40" data-testid="left-drawer-backdrop" onClick={() => togglePanel('left')} />
+      <div className="absolute inset-y-0 left-0 z-30 flex max-w-[85vw] shadow-2xl shadow-black/60" data-testid="left-drawer">
+        {panel}
+      </div>
+    </>
   );
 }

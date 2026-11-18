@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import { Copy, Eye, EyeOff, MousePointerClick, RotateCcw, Trash2 } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Copy, Eye, EyeOff, Link2, MousePointerClick, Plus, RotateCcw, Trash2 } from 'lucide-react';
+
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { useProjectStore } from '../../stores/projectStore';
@@ -11,11 +12,16 @@ import { formatRelativeTime } from '../../utils/format';
 import { DEG_TO_RAD, RAD_TO_DEG, describeGeometry } from '../../utils/math';
 import { COMPONENT_CATEGORIES, findComponent } from '../component-library/catalog';
 import { deleteSelected, duplicateSelected } from '../projects/workspaceActions';
+import { flattenTree, validParentIds } from '../robot-model/hierarchy';
+import { jointTypeLabel } from '../robot-model/joints';
+import { robotModel } from '../robot-model/robotModelConnector';
+import { indexObjects, worldPosition } from '../robot-model/transforms';
+import { validateRobotModel } from '../robot-model/validation';
 import { categoryLabel, findTemplate } from '../robot-library/templates';
-import { NumberField } from './NumberField';
-
-const AXIS_COLORS = ['#EF4444', '#22C55E', '#3B82F6'] as const;
-const AXIS_LABELS = ['X', 'Y', 'Z'] as const;
+import { JOINT_COLORS } from '../viewport/jointStyle';
+import { JointDialog } from './JointDialog';
+import { JointInspector } from './JointInspector';
+import { VectorRow } from './VectorRow';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
@@ -34,47 +40,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
     <div className="flex items-start justify-between gap-3 py-0.5 text-xs">
       <span className="shrink-0 text-faint">{label}</span>
       <span className="min-w-0 text-right break-words">{children}</span>
-    </div>
-  );
-}
-
-interface VectorRowProps {
-  label: string;
-  unit: string;
-  values: Vec3;
-  step: number;
-  decimals: number;
-  min?: number;
-  testId: string;
-  onCommit: (values: Vec3) => void;
-}
-
-function VectorRow({ label, unit, values, step, decimals, min, testId, onCommit }: VectorRowProps) {
-  return (
-    <div className="mb-2 last:mb-0">
-      <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
-        <span>{label}</span>
-        <span className="font-mono text-[10px] text-faint">{unit}</span>
-      </div>
-      <div className="grid grid-cols-3 gap-1">
-        {values.map((value, axis) => (
-          <NumberField
-            key={AXIS_LABELS[axis]}
-            label={AXIS_LABELS[axis]}
-            tagColor={AXIS_COLORS[axis]}
-            value={value}
-            step={step}
-            decimals={decimals}
-            min={min}
-            testId={`${testId}-${AXIS_LABELS[axis].toLowerCase()}`}
-            onCommit={(next) => {
-              const updated: Vec3 = [...values];
-              updated[axis] = next;
-              onCommit(updated);
-            }}
-          />
-        ))}
-      </div>
     </div>
   );
 }
@@ -105,6 +70,84 @@ function NameField({ object }: { object: SceneObject }) {
   );
 }
 
+/** Parent selector, children, and the joint that connects this component to its parent. */
+function HierarchySection({ object }: { object: SceneObject }) {
+  const objects = useSceneStore((s) => s.objects);
+  const joints = useSceneStore((s) => s.joints);
+  const select = useSelectionStore((s) => s.select);
+  const selectJoint = useSelectionStore((s) => s.selectJoint);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects]);
+  const allowed = useMemo(() => new Set(validParentIds(objects, object.id)), [objects, object.id]);
+  const order = useMemo(() => flattenTree(objects), [objects]);
+  const children = objects.filter((o) => o.parentId === object.id);
+  const joint = joints.find((j) => j.childId === object.id);
+  const world = worldPosition(object.id, indexObjects(objects));
+
+  return (
+    <Section title="Hierarchy">
+      <label className="block">
+        <span className="mb-1 block text-[11px] text-muted">Parent</span>
+        <select
+          value={object.parentId ?? ''}
+          onChange={(e) => robotModel.reparent(object.id, e.target.value || null)}
+          aria-label="Parent component"
+          data-testid="parent-select"
+          className="h-8 w-full rounded-md border border-line bg-app px-2 text-xs outline-none focus:border-accent"
+        >
+          <option value="">None (top level)</option>
+          {order
+            .filter(({ id }) => allowed.has(id))
+            .map(({ id, depth }) => (
+              <option key={id} value={id}>
+                {'\u00A0\u00A0'.repeat(depth)}
+                {byId.get(id)?.name}
+              </option>
+            ))}
+        </select>
+      </label>
+      <p className="mt-1 text-[10.5px] text-faint">Changing the parent keeps the part where it is in the world.</p>
+      <Row label="World position">
+        <span className="font-mono text-[11px] text-muted" data-testid="world-position">
+          {world.map((v) => v.toFixed(3)).join(', ')}
+        </span>
+      </Row>
+      {children.length > 0 && (
+        <div className="mt-2">
+          <div className="mb-1 text-[11px] text-muted">Attached parts ({children.length})</div>
+          <div className="flex flex-wrap gap-1">
+            {children.map((c) => (
+              <button key={c.id} type="button" onClick={() => select(c.id)} className="rounded bg-raised px-1.5 py-0.5 text-[11px] text-muted hover:text-ink">
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="mt-3">
+        <div className="mb-1 text-[11px] text-muted">Joint to parent</div>
+        {joint ? (
+          <button
+            type="button"
+            onClick={() => selectJoint(joint.id)}
+            data-testid="object-joint-link"
+            className="flex w-full items-center gap-2 rounded-md border border-line px-2 py-1.5 text-left text-xs hover:border-accent"
+          >
+            <Link2 size={12} style={{ color: JOINT_COLORS[joint.type] }} />
+            <span className="min-w-0 flex-1 truncate">{joint.name}</span>
+            <span className="text-[10.5px] text-faint">{jointTypeLabel(joint.type)}</span>
+          </button>
+        ) : (
+          <Button size="sm" icon={<Plus size={13} />} onClick={() => setDialogOpen(true)} data-testid="add-joint">
+            Add joint…
+          </Button>
+        )}
+      </div>
+      <JointDialog open={dialogOpen} onClose={() => setDialogOpen(false)} childId={object.id} />
+    </Section>
+  );
+}
+
 function ObjectInspector({ object }: { object: SceneObject }) {
   const updateTransform = useSceneStore((s) => s.updateTransform);
   const setVisible = useSceneStore((s) => s.setVisible);
@@ -129,8 +172,10 @@ function ObjectInspector({ object }: { object: SceneObject }) {
         </div>
       </Section>
 
+      <HierarchySection object={object} />
+
       <Section
-        title="Transform"
+        title={object.parentId ? 'Transform (relative to parent)' : 'Transform'}
         action={
           <button
             type="button"
@@ -190,7 +235,10 @@ function ObjectInspector({ object }: { object: SceneObject }) {
 function ProjectSummary() {
   const projectId = useSceneStore((s) => s.projectId);
   const projectName = useSceneStore((s) => s.projectName);
-  const objectCount = useSceneStore((s) => s.objects.length);
+  const objects = useSceneStore((s) => s.objects);
+  const joints = useSceneStore((s) => s.joints);
+  const objectCount = objects.length;
+  const issues = useMemo(() => validateRobotModel(objects, joints), [objects, joints]);
   const dirty = useSceneStore((s) => s.dirty);
   const project = useProjectStore((s) => (projectId ? s.projects[projectId] : undefined));
   if (!project) return null;
@@ -201,7 +249,13 @@ function ProjectSummary() {
         <div className="mt-2">
           <Row label="Category">{categoryLabel(project.category)}</Row>
           <Row label="Template">{findTemplate(project.templateId)?.name ?? project.templateId}</Row>
-          <Row label="Objects">{objectCount}</Row>
+          <Row label="Components">{objectCount}</Row>
+          <Row label="Joints">{joints.length}</Row>
+          <Row label="Model check">
+            <span data-testid="model-check" className={issues.some((i) => i.severity === 'error') ? 'text-err' : 'text-ok'}>
+              {issues.length === 0 ? 'Valid' : `${issues.length} issue(s)`}
+            </span>
+          </Row>
           <Row label="Schema">v{project.schemaVersion}</Row>
           <Row label="Created">{formatRelativeTime(project.createdAt)}</Row>
           <Row label="Last saved">{dirty ? 'Unsaved changes' : formatRelativeTime(project.savedAt)}</Row>
@@ -209,15 +263,25 @@ function ProjectSummary() {
       </Section>
       <div className="flex flex-col items-center px-6 py-8 text-center">
         <MousePointerClick size={18} className="text-faint" />
-        <p className="mt-2 text-xs text-muted">Select an object in the viewport or the Objects list to inspect and edit it.</p>
+        <p className="mt-2 text-xs text-muted">Select a part or a joint marker in the viewport or the Objects tree to inspect and edit it.</p>
       </div>
+      {issues.length > 0 && (
+        <ul className="space-y-1 px-3 pb-3 text-[11px] text-warn">
+          {issues.map((i) => (
+            <li key={i.message}>{i.message}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-/** Right-hand properties inspector. */
+/** Right-hand properties inspector: a component, a joint, or the project summary. */
 export function Inspector() {
   const selectedId = useSelectionStore((s) => s.selectedId);
+  const selectedJointId = useSelectionStore((s) => s.selectedJointId);
   const object = useSceneStore((s) => s.objects.find((o) => o.id === selectedId));
+  const joint = useSceneStore((s) => s.joints.find((j) => j.id === selectedJointId));
+  if (joint) return <JointInspector key={joint.id} joint={joint} />;
   return object ? <ObjectInspector key={object.id} object={object} /> : <ProjectSummary />;
 }

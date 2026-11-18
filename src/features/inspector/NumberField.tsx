@@ -21,6 +21,10 @@ export function NumberField({ label, tagColor, value, step, decimals = 3, min, o
   const format = (v: number) => String(Number(v.toFixed(decimals)));
   const [text, setText] = useState(format(value));
   const focused = useRef(false);
+  const latest = useRef(value);
+  useEffect(() => {
+    latest.current = value;
+  }, [value]);
 
   useEffect(() => {
     if (!focused.current) setText(format(value));
@@ -35,12 +39,18 @@ export function NumberField({ label, tagColor, value, step, decimals = 3, min, o
     }
     const next = min !== undefined ? Math.max(min, parsed) : parsed;
     setText(format(next));
-    if (next !== value) onCommit(next);
+    if (next !== value) {
+      onCommit(next);
+      // If the edit was rejected (validation), show the stored value again.
+      window.setTimeout(() => {
+        if (!focused.current) setText(format(latest.current));
+      }, 0);
+    }
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      commit(text);
+      // Blurring commits (see onBlur), so Enter never commits twice.
       event.currentTarget.blur();
     } else if (event.key === 'Escape') {
       setText(format(value));
