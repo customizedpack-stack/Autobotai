@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+/* Design tokens: professional dark engineering workspace. */
+@theme {
+  --color-app: #111318;
+  --color-viewport: #0d0f13;
+  --color-panel: #191d24;
+  --color-panel-2: #1e232b;
+  --color-raised: #252b35;
+  --color-line: #303641;
+  --color-line-soft: #252a33;
+  --color-accent: #3b82f6;
+  --color-accent-strong: #2563eb;
+  --color-accent-soft: rgb(59 130 246 / 0.14);
+  --color-ink: #f1f5f9;
+  --color-muted: #94a3b8;
+  --color-faint: #64748b;
+  --color-ok: #22c55e;
+  --color-warn: #f59e0b;
+  --color-err: #ef4444;
+  --color-axis-x: #ef4444;
+  --color-axis-y: #22c55e;
+  --color-axis-z: #3b82f6;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-app);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color-scheme: dark;
+  }
+
+  ::selection {
+    background: rgb(59 130 246 / 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #343b47 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
