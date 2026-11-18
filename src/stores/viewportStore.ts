@@ -25,6 +25,8 @@ interface ViewportState {
   showAxes: boolean;
   showShadows: boolean;
   showJoints: boolean;
+  /** Control Mode: the camera follows the moving robot. */
+  followRobot: boolean;
   transformMode: TransformMode;
   transformSpace: TransformSpace;
   snap: boolean;
@@ -39,6 +41,7 @@ interface ViewportState {
   toggleAxes: () => void;
   toggleShadows: () => void;
   toggleJoints: () => void;
+  toggleFollowRobot: () => void;
   setTransformMode: (mode: TransformMode) => void;
   toggleTransformSpace: () => void;
   toggleSnap: () => void;
@@ -56,6 +59,7 @@ export const useViewportStore = create<ViewportState>((set, get) => ({
   showAxes: true,
   showShadows: true,
   showJoints: true,
+  followRobot: true,
   transformMode: 'translate',
   transformSpace: 'world',
   snap: false,
@@ -74,6 +78,7 @@ export const useViewportStore = create<ViewportState>((set, get) => ({
   toggleAxes: () => set({ showAxes: !get().showAxes }),
   toggleShadows: () => set({ showShadows: !get().showShadows }),
   toggleJoints: () => set({ showJoints: !get().showJoints }),
+  toggleFollowRobot: () => set({ followRobot: !get().followRobot }),
   setTransformMode: (transformMode) => set({ transformMode }),
   toggleTransformSpace: () => set({ transformSpace: get().transformSpace === 'world' ? 'local' : 'world' }),
   toggleSnap: () => set({ snap: !get().snap }),

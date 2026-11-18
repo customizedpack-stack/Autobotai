@@ -44,9 +44,12 @@ describe('schema v1 -> v2 migration', () => {
     const { project, fromVersion, toVersion, warnings } = migrateProject(structuredClone(V1_PROJECT));
     expect(fromVersion).toBe(1);
     expect(toVersion).toBe(PROJECT_SCHEMA_VERSION);
-    expect(project.schemaVersion).toBe(2);
+    expect(project.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
     expect(project.joints).toEqual([]);
-    expect(warnings).toEqual([]);
+    // The Phase 1 Explorer Bot has no joints yet, so its drive cannot be set up automatically.
+    expect(warnings).toEqual(['Explorer Bot drive could not be configured automatically; use "Set up differential drive".']);
+    expect(project.actuators).toEqual([]);
+    expect(project.controllers).toEqual([]);
     expect(project.objects).toEqual(V1_PROJECT.objects);
     expect(project.name).toBe('Phase 1 Explorer');
     expect(project.savedAt).toBe(V1_PROJECT.savedAt);
@@ -74,11 +77,11 @@ describe('schema v1 -> v2 migration', () => {
     expect(warnings.some((w) => w.includes('missing parent'))).toBe(true);
   });
 
-  it('leaves current v2 projects unchanged', () => {
-    const v2 = migrateProject(structuredClone(V1_PROJECT)).project;
-    const again = migrateProject(structuredClone(v2));
-    expect(again.fromVersion).toBe(2);
-    expect(again.project).toEqual(v2);
+  it('leaves projects already on the current schema unchanged', () => {
+    const current = migrateProject(structuredClone(V1_PROJECT)).project;
+    const again = migrateProject(structuredClone(current));
+    expect(again.fromVersion).toBe(PROJECT_SCHEMA_VERSION);
+    expect(again.project).toEqual(current);
   });
 
   it('throws only for data that is not an object', () => {
@@ -92,7 +95,7 @@ describe('persisted store migration', () => {
   it('upgrades every stored v1 project and backs up unreadable entries', () => {
     const result = migratePersistedProjects({ projects: { [V1_PROJECT.id]: structuredClone(V1_PROJECT), broken: 42 } }, 1);
     expect(Object.keys(result.projects)).toEqual([V1_PROJECT.id]);
-    expect(result.projects[V1_PROJECT.id]!.schemaVersion).toBe(2);
+    expect(result.projects[V1_PROJECT.id]!.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
     expect(JSON.parse(localStorage.getItem('arai.projects.unreadable') ?? '{}')).toEqual({ broken: 42 });
   });
 });

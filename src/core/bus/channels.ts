@@ -1,4 +1,7 @@
+import type { CommandSource, CommandType, RobotCommand } from '../../features/controls/commands';
+import type { CommandStatus } from '../../features/controls/movementEngine';
 import type { LogInput } from '../../types/console';
+import type { ActuatorInput, ActuatorPatch, ActuatorType } from '../../types/actuator';
 import type { JointInput, JointPatch, JointType } from '../../types/joint';
 import type { CameraView } from '../../types/viewport';
 
@@ -29,7 +32,11 @@ export interface BusChannels {
   'robotModel.jointUpdated': { jointId: string; changed: string[] };
   'robotModel.jointDeleted': { jointId: string; parentId: string; childId: string };
   'robotModel.rejected': { command: string; errors: string[] };
-  'robotModel.changed': { reason: string; componentCount: number; jointCount: number };
+  'robotModel.actuatorCreated': { actuatorId: string; type: ActuatorType; jointId: string };
+  'robotModel.actuatorUpdated': { actuatorId: string; changed: string[] };
+  'robotModel.actuatorDeleted': { actuatorId: string };
+  'robotModel.controllerChanged': { controllerId: string; change: 'added' | 'updated' | 'removed' };
+  'robotModel.changed': { reason: string; componentCount: number; jointCount: number; actuatorCount: number };
 
   // ── C1 Robot Model Connector: requests (any module may ask for a change) ──
   'robotModel.request.reparent': { componentId: string; parentId: string | null };
@@ -37,6 +44,17 @@ export interface BusChannels {
   'robotModel.request.createJoint': JointInput;
   'robotModel.request.updateJoint': { jointId: string; patch: JointPatch };
   'robotModel.request.deleteJoint': { jointId: string };
+  'robotModel.request.createActuator': ActuatorInput;
+  'robotModel.request.updateActuator': { actuatorId: string; patch: ActuatorPatch };
+  'robotModel.request.deleteActuator': { actuatorId: string };
+
+  // ── C2 Command Bus ──
+  /** Any module may request a robot command; it is validated like UI commands. */
+  'command.request': { type: CommandType; payload: unknown; robotId?: string; source?: CommandSource };
+  'command.accepted': { command: RobotCommand };
+  'command.rejected': { command: RobotCommand; errors: string[] };
+  'command.status': { commandId: string; type: CommandType; status: CommandStatus; detail?: string };
+  'robot.modeChanged': { mode: 'build' | 'control' };
 }
 
 export type BusChannel = keyof BusChannels;
@@ -50,8 +68,8 @@ export interface FutureConnector {
 
 /** Connectors from the master build plan and when each becomes active. */
 export const FUTURE_CONNECTORS: readonly FutureConnector[] = [
-  { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, hierarchy, joints', phase: 'Active (Phase 2)' },
-  { code: 'C2', name: 'Command Bus', carries: 'Movement commands: drive, turn, set joint, stop', phase: 'Phase 3 / D' },
+  { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, hierarchy, joints', phase: 'Active (Phase 2; actuators in Phase 3)' },
+  { code: 'C2', name: 'Command Bus', carries: 'Commands: drive, turn, setJointTarget, stop, reset', phase: 'Active (Phase 3)' },
   { code: 'C3', name: 'Sensor Stream', carries: 'Distance, IMU, camera and lidar readings', phase: 'Phase 6 / F' },
   { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 / E' },
   { code: 'C5', name: 'Environment Connector', carries: 'Floors, walls, obstacles, zones', phase: 'Phase 7 / I' },

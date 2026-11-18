@@ -1,4 +1,6 @@
+import type { RobotActuator, RobotController } from '../../types/actuator';
 import type { RobotJoint } from '../../types/joint';
+import { validateActuator, validateController } from './actuators';
 import type { ComponentCategory, SceneObject, SceneObjectDraft } from '../../types/scene';
 import { descendantIds } from './hierarchy';
 import { validateJoint } from './joints';
@@ -48,7 +50,12 @@ export interface ModelIssue {
 }
 
 /** Whole-model check: hierarchy integrity and joint consistency. */
-export function validateRobotModel(objects: readonly SceneObject[], joints: readonly RobotJoint[]): ModelIssue[] {
+export function validateRobotModel(
+  objects: readonly SceneObject[],
+  joints: readonly RobotJoint[],
+  actuators: readonly RobotActuator[] = [],
+  controllers: readonly RobotController[] = [],
+): ModelIssue[] {
   const issues: ModelIssue[] = [];
   const ids = new Set<string>();
   for (const o of objects) {
@@ -70,6 +77,17 @@ export function validateRobotModel(objects: readonly SceneObject[], joints: read
     const child = objects.find((o) => o.id === joint.childId);
     if (child && child.parentId !== joint.parentId) {
       issues.push({ severity: 'error', message: `Joint "${joint.name}": child is not attached to the joint's parent.`, jointId: joint.id });
+    }
+  }
+  const ctx = { objects, joints, actuators };
+  for (const actuator of actuators) {
+    for (const message of validateActuator(actuator, ctx)) {
+      issues.push({ severity: 'error', message: `Actuator "${actuator.name}": ${message}` });
+    }
+  }
+  for (const controller of controllers) {
+    for (const message of validateController(controller, ctx, controllers)) {
+      issues.push({ severity: 'error', message: `Controller "${controller.name}": ${message}` });
     }
   }
   return issues;

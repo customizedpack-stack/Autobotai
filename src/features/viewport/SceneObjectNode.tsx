@@ -3,7 +3,8 @@ import { Edges } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Group } from 'three';
 import type { RobotJoint } from '../../types/joint';
-import type { PrimitiveGeometry, SceneObject } from '../../types/scene';
+import type { PrimitiveGeometry, SceneObject, Transform } from '../../types/scene';
+import { posedChildTransform } from '../robot-model/kinematics';
 import { JointMarker } from './JointMarker';
 import { objectRegistry } from './objectRegistry';
 
@@ -26,6 +27,11 @@ export interface SceneTreeContext {
   byId: ReadonlyMap<string, SceneObject>;
   children: ReadonlyMap<string | null, string[]>;
   jointsByParent: ReadonlyMap<string, RobotJoint[]>;
+  jointByChild: ReadonlyMap<string, RobotJoint>;
+  /** Live (Control Mode) transforms of moving root components. */
+  rootPoses: Readonly<Record<string, Transform>>;
+  /** Live joint positions; the child is drawn moved around its joint. */
+  jointPositions: Readonly<Record<string, number>>;
   selectedId: string | null;
   selectedJointId: string | null;
   hoveredId: string | null;
@@ -46,7 +52,11 @@ export const SceneObjectNode = memo(function SceneObjectNode({ id, ctx }: { id: 
   const object = ctx.byId.get(id);
   const register = useCallback((group: Group | null) => objectRegistry.set(id, group), [id]);
   if (!object) return null;
-  const { position, rotation, scale } = object.transform;
+  // Design transform, replaced by the live pose while driving, then moved by its joint position.
+  const base: SceneObject = ctx.rootPoses[id] ? { ...object, transform: ctx.rootPoses[id] } : object;
+  const joint = ctx.jointByChild.get(id);
+  const q = joint ? ctx.jointPositions[joint.id] ?? 0 : 0;
+  const { position, rotation, scale } = joint && q !== 0 ? posedChildTransform(base, joint, q) : base.transform;
   const selected = id === ctx.selectedId;
   const hovered = id === ctx.hoveredId;
   const dropTarget = id === ctx.dropTargetId;

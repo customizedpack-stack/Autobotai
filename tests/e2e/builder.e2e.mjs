@@ -305,7 +305,7 @@ try {
     await p.getByTestId('workspace').waitFor();
     await p.getByRole('tab', { name: /Objects/ }).click();
     await p.getByTestId('tree-root').getByText('2 parts · 0 joints').waitFor();
-    await p.getByTestId('console-log').getByText(/Upgraded 1 project\(s\) from schema v1 to v2/).waitFor();
+    await p.getByTestId('console-log').getByText(/Upgraded 1 project\(s\) from schema v1 to v3/).waitFor();
     await p.getByTestId('objects-panel').getByRole('button', { name: 'Old Wheel', exact: true }).click();
     assert((await p.getByTestId('pos-x').inputValue()) === '0.5', 'legacy transform changed');
     await p.waitForTimeout(800);

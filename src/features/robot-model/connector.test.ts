@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { bus, type BusEnvelope } from '../../core/bus/connectorBus';
 import { useProjectStore } from '../../stores/projectStore';
+import { PROJECT_SCHEMA_VERSION } from '../../types/project';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { findComponent } from '../component-library/catalog';
@@ -116,7 +117,7 @@ describe('C1 Robot Model Connector', () => {
     robotModel.reparent(byName('Lidar').id, byName('Chassis').id);
     saveCurrentProject();
     const saved = useProjectStore.getState().projects[project.id]!;
-    expect(saved.schemaVersion).toBe(2);
+    expect(saved.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
     expect(saved.joints).toHaveLength(3);
     expect(saved.objects.find((o) => o.name === 'Lidar')!.parentId).toBe(byName('Chassis').id);
   });

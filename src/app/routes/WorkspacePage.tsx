@@ -10,9 +10,11 @@ import { SettingsDialog } from '../../components/workspace/SettingsDialog';
 import { StatusBar } from '../../components/workspace/StatusBar';
 import { ViewportToolbar } from '../../components/workspace/ViewportToolbar';
 import { WorkspaceTopBar } from '../../components/workspace/WorkspaceTopBar';
+import { endControlSession } from '../../features/controls/controlSession';
 import { saveCurrentProject } from '../../features/projects/workspaceActions';
 import { Viewport } from '../../features/viewport/Viewport';
 import { COMPACT_WORKSPACE_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
+import { useRobotKeyboard } from '../../hooks/useRobotKeyboard';
 import { useWorkspaceShortcuts } from '../../hooks/useWorkspaceShortcuts';
 import { useProjectStore } from '../../stores/projectStore';
 import { useSceneStore } from '../../stores/sceneStore';
@@ -60,15 +62,20 @@ export default function WorkspacePage() {
   // Load the project into the editable scene once per project id.
   useEffect(() => {
     if (!project || useSceneStore.getState().projectId === project.id) return;
+    endControlSession();
     useSceneStore.getState().loadProject(project);
     useSelectionStore.getState().clear();
     useViewportStore.getState().requestView('perspective');
-    log.info('project', `Opened "${project.name}" with ${project.objects.length} objects and ${project.joints.length} joints.`);
+    log.info(
+      'project',
+      `Opened "${project.name}" with ${project.objects.length} objects, ${project.joints.length} joints and ${project.actuators.length} actuators.`,
+    );
   }, [project]);
 
   // Close the scene when leaving the workspace.
   useEffect(
     () => () => {
+      endControlSession();
       useSceneStore.getState().closeProject();
       useSelectionStore.getState().clear();
       document.body.style.cursor = '';
@@ -96,6 +103,7 @@ export default function WorkspacePage() {
 
   const ready = Boolean(project) && loadedId === projectId;
   useWorkspaceShortcuts(ready);
+  useRobotKeyboard(ready);
 
   const exit = useCallback(() => navigate('/'), [navigate]);
 

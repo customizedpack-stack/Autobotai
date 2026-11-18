@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { bus } from '../core/bus/connectorBus';
 import { materializeTemplate } from '../features/projects/materialize';
-import { migrateProject } from '../features/robot-model/schema';
+import { autoConfigureDrive, migrateProject } from '../features/robot-model/schema';
 import { findTemplate } from '../features/robot-library/templates';
 import { PROJECT_SCHEMA_VERSION, type NewProjectInput, type RobotProject } from '../types/project';
+import type { RobotActuator, RobotController } from '../types/actuator';
 import type { RobotJoint } from '../types/joint';
 import type { SceneObject } from '../types/scene';
 import { createId } from '../utils/id';
@@ -18,7 +19,10 @@ import { safeStorage } from '../utils/storage';
 interface ProjectState {
   projects: Record<string, RobotProject>;
   createProject: (input: NewProjectInput) => RobotProject;
-  saveProject: (id: string, data: { name: string; objects: SceneObject[]; joints: RobotJoint[] }) => RobotProject | null;
+  saveProject: (
+    id: string,
+    data: { name: string; objects: SceneObject[]; joints: RobotJoint[]; actuators: RobotActuator[]; controllers: RobotController[] },
+  ) => RobotProject | null;
   renameProject: (id: string, name: string) => void;
   deleteProject: (id: string) => void;
   getProject: (id: string) => RobotProject | undefined;
@@ -35,6 +39,8 @@ export const useProjectStore = create<ProjectState>()(
         const { objects, joints } = template
           ? materializeTemplate(template.build(), template.joints?.() ?? [], now)
           : { objects: [], joints: [] };
+        // Explorer Bot comes ready to drive: two DC motors and a differential-drive controller.
+        const drive = template?.id === 'explorer-bot' ? autoConfigureDrive(objects, joints) : { actuators: [], controllers: [] };
         const project: RobotProject = {
           id: createId('prj'),
           name: input.name.trim() || 'Untitled Robot',
@@ -43,6 +49,8 @@ export const useProjectStore = create<ProjectState>()(
           schemaVersion: PROJECT_SCHEMA_VERSION,
           objects,
           joints,
+          actuators: drive.actuators,
+          controllers: drive.controllers,
           createdAt: now,
           updatedAt: now,
           savedAt: now,
@@ -62,6 +70,8 @@ export const useProjectStore = create<ProjectState>()(
           name: data.name.trim() || existing.name,
           objects: structuredClone(data.objects),
           joints: structuredClone(data.joints),
+          actuators: structuredClone(data.actuators),
+          controllers: structuredClone(data.controllers),
           schemaVersion: PROJECT_SCHEMA_VERSION,
           updatedAt: now,
           savedAt: now,
@@ -99,8 +109,8 @@ export const useProjectStore = create<ProjectState>()(
       // The storage key keeps its original name so existing drafts are found.
       name: 'arai.projects.v1',
       storage: safeStorage,
-      version: 2,
-      // Persisted store v1 held schema-v1 projects; upgrade each one in place.
+      version: 3,
+      // The persisted store version follows the schema version; upgrade each project in place.
       migrate: (persisted, version) => migratePersistedProjects(persisted, version),
     },
   ),

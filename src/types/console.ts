@@ -8,7 +8,8 @@ export type LogSource =
   | 'inspector'
   | 'library'
   | 'storage'
-  | 'simulation';
+  | 'simulation'
+  | 'control';
 
 export interface LogEntry {
   id: number;

@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
+import type { Vec3 } from '../../types/scene';
 import { useViewportStore } from '../../stores/viewportStore';
 import { worldSceneBounds } from '../robot-model/transforms';
 import { cameraPosition, classifyView, framingDistance } from './cameraPresets';
@@ -20,6 +22,12 @@ const DURATION = 0.45;
 const SETTLE_FRAMES = 4;
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
+/** Components as currently shown: live (driven) poses replace design transforms. */
+function liveObjects() {
+  const { rootPoses } = useRobotStateStore.getState();
+  return useSceneStore.getState().objects.map((o) => (rootPoses[o.id] ? { ...o, transform: rootPoses[o.id]! } : o));
+}
+
 /**
  * Moves the camera for view and frame requests, and keeps the view label in
  * sync with the real camera. Whatever moves the camera (toolbar buttons, the
@@ -34,6 +42,7 @@ export function CameraRig() {
   const frameRequest = useViewportStore((s) => s.frameRequest);
   const anim = useRef<Animation | null>(null);
   const motion = useRef({ pos: new Vector3(), target: new Vector3(), moving: false, still: 0 });
+  const followed = useRef<Vec3 | null>(null);
 
   const fov = camera instanceof PerspectiveCamera ? camera.fov : 45;
 
@@ -45,7 +54,7 @@ export function CameraRig() {
   // Preset view (Perspective, Front, Back, Left, Right, Top).
   useEffect(() => {
     if (!viewRequest || !controls) return;
-    const bounds = worldSceneBounds(useSceneStore.getState().objects);
+    const bounds = worldSceneBounds(liveObjects());
     const distance = framingDistance(bounds.radius, fov);
     const pos = cameraPosition(bounds.center, viewRequest.view, distance);
     start(new Vector3(...pos), new Vector3(...bounds.center));
@@ -55,7 +64,7 @@ export function CameraRig() {
   // Frame all objects, keeping the current viewing direction.
   useEffect(() => {
     if (frameRequest === 0 || !controls) return;
-    const bounds = worldSceneBounds(useSceneStore.getState().objects);
+    const bounds = worldSceneBounds(liveObjects());
     const target = new Vector3(...bounds.center);
     const direction = camera.position.clone().sub(controls.target);
     if (direction.lengthSq() < 1e-6) direction.set(0.62, 0.48, 0.62);
@@ -77,6 +86,23 @@ export function CameraRig() {
 
   useFrame((_, delta) => {
     if (!controls) return;
+
+    // Follow the driven robot: shift camera and target by the robot's movement.
+    const robot = useRobotStateStore.getState();
+    const followId = robot.mode === 'control' && useViewportStore.getState().followRobot ? Object.keys(robot.rootPoses)[0] : undefined;
+    const followPos = followId ? robot.rootPoses[followId]!.position : null;
+    if (followPos && followed.current && !anim.current) {
+      const d = new Vector3(followPos[0] - followed.current[0], 0, followPos[2] - followed.current[2]);
+      if (d.lengthSq() > 0) {
+        camera.position.add(d);
+        controls.target.add(d);
+        controls.update();
+        motion.current.pos.add(d);
+        motion.current.target.add(d);
+      }
+    }
+    followed.current = followPos ? [...followPos] : null;
+
     const a = anim.current;
     if (a) {
       a.t = Math.min(1, a.t + delta / DURATION);

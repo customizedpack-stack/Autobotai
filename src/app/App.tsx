@@ -6,6 +6,7 @@ import { DashboardPage } from './routes/DashboardPage';
 import { NewRobotPage } from './routes/NewRobotPage';
 import { NotFoundPage } from './routes/NotFoundPage';
 import { ProjectsPage } from './routes/ProjectsPage';
+import { RouteError } from './routes/RouteError';
 
 // The workspace pulls in Three.js; load it only when it is opened.
 const WorkspacePage = lazy(() => import('./routes/WorkspacePage'));
@@ -17,6 +18,7 @@ function WorkspaceLoading() {
 const routes: RouteObject[] = [
   {
     element: <AppShell />,
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'projects', element: <ProjectsPage /> },
@@ -25,6 +27,7 @@ const routes: RouteObject[] = [
   },
   {
     path: 'workspace/:projectId',
+    errorElement: <RouteError />,
     element: (
       <Suspense fallback={<WorkspaceLoading />}>
         <WorkspacePage />

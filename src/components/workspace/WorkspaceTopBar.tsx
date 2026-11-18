@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ChevronLeft,
   Code2,
+  Gamepad2,
   Lock,
   PanelBottom,
   PanelLeft,
@@ -13,7 +14,9 @@ import {
   Shapes,
   Undo2,
 } from 'lucide-react';
+import { setWorkspaceMode } from '../../features/controls/controlSession';
 import { redo, saveCurrentProject, undo } from '../../features/projects/workspaceActions';
+import { useRobotStateStore, type WorkspaceMode } from '../../stores/robotStateStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
@@ -63,9 +66,10 @@ function SaveState() {
 }
 
 const MODES = [
-  { id: 'build', label: 'Build', icon: <Shapes size={13} />, phase: null },
-  { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: 'Phase 4' },
-  { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: 'Phase 5' },
+  { id: 'build', label: 'Build', icon: <Shapes size={13} />, phase: null, hint: 'Edit the robot design (M)' },
+  { id: 'control', label: 'Control', icon: <Gamepad2 size={13} />, phase: null, hint: 'Drive the robot with keys and buttons (M)' },
+  { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: 'Phase 4', hint: '' },
+  { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: 'Phase 5', hint: '' },
 ] as const;
 
 interface WorkspaceTopBarProps {
@@ -74,8 +78,10 @@ interface WorkspaceTopBarProps {
 }
 
 export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps) {
-  const canUndo = useSceneStore((s) => s.past.length > 0);
-  const canRedo = useSceneStore((s) => s.future.length > 0);
+  const mode = useRobotStateStore((s) => s.mode);
+  const control = mode === 'control';
+  const canUndo = useSceneStore((s) => s.past.length > 0) && !control;
+  const canRedo = useSceneStore((s) => s.future.length > 0) && !control;
   const dirty = useSceneStore((s) => s.dirty);
   const projectName = useSceneStore((s) => s.projectName);
   const collapsed = useWorkspaceStore((s) => s.collapsed);
@@ -97,28 +103,39 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
       <ProjectNameField key={projectName} name={projectName} />
       <SaveState />
 
-      <nav className="mx-auto hidden items-center rounded-md border border-line bg-app p-0.5 lg:flex" aria-label="Workspace mode">
-        {MODES.map((mode) =>
-          mode.phase ? (
+      <nav className="mx-auto flex items-center rounded-md border border-line bg-app p-0.5" aria-label="Workspace mode">
+        {MODES.map((m) =>
+          m.phase ? (
             <span
-              key={mode.id}
-              className="flex h-6 cursor-not-allowed items-center gap-1.5 rounded px-2.5 text-xs text-faint"
-              title={`${mode.label} mode arrives in ${mode.phase}`}
+              key={m.id}
+              className="hidden h-6 cursor-not-allowed items-center gap-1.5 rounded px-2.5 text-xs text-faint lg:flex"
+              title={`${m.label} mode arrives in ${m.phase}`}
             >
-              {mode.icon}
-              {mode.label}
+              {m.icon}
+              {m.label}
               <Lock size={10} />
             </span>
           ) : (
-            <span key={mode.id} aria-current="page" className="flex h-6 items-center gap-1.5 rounded bg-raised px-2.5 text-xs font-medium text-ink">
-              {mode.icon}
-              {mode.label}
-            </span>
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setWorkspaceMode(m.id as WorkspaceMode)}
+              aria-pressed={mode === m.id}
+              title={m.hint}
+              data-testid={`mode-${m.id}`}
+              className={cn(
+                'flex h-6 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors',
+                mode === m.id ? (m.id === 'control' ? 'bg-accent text-white' : 'bg-raised text-ink') : 'text-muted hover:text-ink',
+              )}
+            >
+              {m.icon}
+              {m.label}
+            </button>
           ),
         )}
       </nav>
 
-      <div className="ml-auto flex items-center gap-0.5 lg:ml-0">
+      <div className="flex items-center gap-0.5">
         <IconButton label="Undo" shortcut="Ctrl+Z" onClick={undo} disabled={!canUndo} data-testid="undo">
           <Undo2 size={15} />
         </IconButton>

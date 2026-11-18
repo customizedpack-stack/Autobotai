@@ -1,6 +1,7 @@
 import type React from 'react';
-import { Axis3d, Globe, Grid3x3, Link2, Magnet, Maximize, MousePointer2, Move3d, Rotate3d, Scaling, SunDim } from 'lucide-react';
+import { Axis3d, Crosshair, Globe, Grid3x3, Link2, Magnet, Maximize, MousePointer2, Move3d, Rotate3d, Scaling, SunDim } from 'lucide-react';
 import { CAMERA_VIEWS } from '../../features/viewport/cameraPresets';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useViewportStore, type TransformMode } from '../../stores/viewportStore';
 import { cn } from '../../utils/cn';
@@ -26,6 +27,9 @@ export function ViewportToolbar() {
   const toggleSpace = useViewportStore((s) => s.toggleTransformSpace);
   const snap = useViewportStore((s) => s.snap);
   const toggleSnap = useViewportStore((s) => s.toggleSnap);
+  const control = useRobotStateStore((s) => s.mode === 'control');
+  const followRobot = useViewportStore((s) => s.followRobot);
+  const toggleFollowRobot = useViewportStore((s) => s.toggleFollowRobot);
 
   const modes: { id: TransformMode; label: string; key: string; icon: React.ReactNode }[] = [
     { id: 'select', label: 'Select', key: 'Q', icon: <MousePointer2 size={13} /> },
@@ -38,6 +42,8 @@ export function ViewportToolbar() {
     <>
       <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex items-start justify-between gap-2">
         <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-md border border-line bg-panel/95 p-0.5 shadow-lg shadow-black/30 backdrop-blur">
+          {!control && (
+          <>
           <div className="flex" role="group" aria-label="Transform tools" data-testid="transform-tools">
             {modes.map((m) => (
               <IconButton key={m.id} label={`${m.label} tool`} shortcut={m.key} active={mode === m.id} onClick={() => setMode(m.id)} className="h-6 w-6">
@@ -52,6 +58,8 @@ export function ViewportToolbar() {
             </IconButton>
           </div>
           <div className="mx-0.5 h-4 w-px bg-line" />
+          </>
+          )}
           <div className="flex" role="group" aria-label="Camera views" data-testid="view-buttons">
             {CAMERA_VIEWS.map((view) => (
               <button
@@ -85,12 +93,27 @@ export function ViewportToolbar() {
           <IconButton label="Joint markers" active={showJoints} onClick={toggleJoints} className="h-6 w-6">
             <Link2 size={13} />
           </IconButton>
+          {control && (
+            <IconButton label="Camera follows the robot" active={followRobot} onClick={toggleFollowRobot} className="h-6 w-6">
+              <Crosshair size={13} />
+            </IconButton>
+          )}
         </div>
         <div className="hidden shrink-0 rounded-md border border-line bg-panel/90 px-2 py-1 font-mono text-[10.5px] text-muted md:block" data-testid="active-view">
           {activeView === 'custom' ? 'Custom view' : `${CAMERA_VIEWS.find((v) => v.id === activeView)?.label} view`} · Y-up · meters
         </div>
       </div>
-      {showHints && (
+      {control && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-2"
+          data-testid="kinematic-banner"
+        >
+          <span className="rounded-md border border-warn/40 bg-panel/90 px-2.5 py-1 text-[11px] font-medium text-warn">
+            Kinematic Simulation — Physics Engine Integration Coming in Phase 5
+          </span>
+        </div>
+      )}
+      {showHints && !control && (
         <div className="pointer-events-none absolute bottom-2 left-2 hidden rounded-md bg-panel/80 px-2 py-1 text-[10.5px] text-faint md:block">
           Left-drag orbit · Right-drag pan · Wheel zoom · Click to select · W/E/R move, rotate, scale
         </div>

@@ -6,6 +6,7 @@ import { childrenMap } from '../../features/robot-model/hierarchy';
 import { jointTypeLabel } from '../../features/robot-model/joints';
 import { robotModel } from '../../features/robot-model/robotModelConnector';
 import { JOINT_COLORS } from '../../features/viewport/jointStyle';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useSelectionStore } from '../../stores/selectionStore';
 import type { RobotJoint } from '../../types/joint';
@@ -30,6 +31,7 @@ function TreeRow({ object, depth, childCount, expanded, joint, onToggle }: RowPr
   const selectJoint = useSelectionStore((s) => s.selectJoint);
   const setVisible = useSceneStore((s) => s.setVisible);
   const [dropHover, setDropHover] = useState(false);
+  const control = useRobotStateStore((s) => s.mode === 'control');
   const active = object.id === selectedId;
   const label = COMPONENT_CATEGORIES.find((c) => c.id === object.category)?.label ?? object.category;
 
@@ -43,13 +45,13 @@ function TreeRow({ object, depth, childCount, expanded, joint, onToggle }: RowPr
   return (
     <li role="treeitem" aria-expanded={childCount ? expanded : undefined} aria-selected={active} aria-level={depth + 1}>
       <div
-        draggable
+        draggable={!control}
         onDragStart={(event) => {
           event.dataTransfer.setData(TREE_DRAG_TYPE, object.id);
           event.dataTransfer.effectAllowed = 'move';
         }}
         onDragOver={(event) => {
-          if (!event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
+          if (control || !event.dataTransfer.types.includes(TREE_DRAG_TYPE)) return;
           event.preventDefault();
           setDropHover(true);
         }}
@@ -94,6 +96,7 @@ function TreeRow({ object, depth, childCount, expanded, joint, onToggle }: RowPr
         {!joint && <span className="max-w-16 shrink-0 truncate text-[10px] text-faint group-hover:hidden">{label}</span>}
         <button
           type="button"
+          disabled={control}
           onClick={() => setVisible(object.id, !object.visible)}
           aria-label={object.visible ? `Hide ${object.name}` : `Show ${object.name}`}
           title={object.visible ? 'Hide' : 'Show'}
