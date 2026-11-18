@@ -3,6 +3,7 @@ import { REVISION } from 'three';
 import { Badge } from '../../components/common/Badge';
 import { FUTURE_CONNECTORS } from '../../core/bus/channels';
 import { useSceneStore } from '../../stores/sceneStore';
+import { useSimulationStore } from '../physics/simulation/simulationStore';
 import { isStorageAvailable } from '../../utils/storage';
 
 function webglVersion(): string {
@@ -30,6 +31,8 @@ export function StatusView() {
   const past = useSceneStore((s) => s.past.length);
   const future = useSceneStore((s) => s.future.length);
   const dirty = useSceneStore((s) => s.dirty);
+  const engine = useSimulationStore((s) => s.engine);
+  const simState = useSimulationStore((s) => s.state);
   const gl = useMemo(() => webglVersion(), []);
   const storage = useMemo(() => isStorageAvailable(), []);
 
@@ -50,11 +53,10 @@ export function StatusView() {
       <div>
         <h4 className="mb-1.5 text-[10.5px] font-semibold tracking-wider text-muted uppercase">Simulation</h4>
         <Item label="Physics engine">
-          <Badge>Not connected</Badge>
+          <Badge tone={simState === 'running' ? 'ok' : 'neutral'}>Rapier 0.21 · {simState}</Badge>
         </Item>
-        <Item label="Engine planned">MuJoCo (WebAssembly)</Item>
-        <Item label="Arrives in">Phase 5</Item>
-        <Item label="Current mode">Editing only, no physics</Item>
+        <Item label="Selected engine">{engine === 'physics' ? 'Physics' : 'Kinematic'}</Item>
+        <Item label="Timestep">1/60 s, 4 substeps</Item>
       </div>
       <div>
         <h4 className="mb-1.5 text-[10.5px] font-semibold tracking-wider text-muted uppercase">Connectors</h4>

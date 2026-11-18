@@ -1,3 +1,4 @@
+import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useSelectionStore } from '../../stores/selectionStore';
@@ -13,6 +14,8 @@ export function StatusBar() {
   const mode = useRobotStateStore((s) => s.mode);
   const movement = useRobotStateStore((s) => s.movement.status);
   const speed = useRobotStateStore((s) => s.speedPercent);
+  const engine = useSimulationStore((s) => s.engine);
+  const simState = useSimulationStore((s) => s.state);
 
   return (
     <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-line bg-app px-3 text-[10.5px] text-muted" data-testid="status-bar">
@@ -28,10 +31,11 @@ export function StatusBar() {
       <span>{objects.length} objects</span>
       <span className="truncate">Selected: {selected ? selected.name : 'none'}</span>
       <span className="ml-auto hidden items-center gap-1.5 md:flex">
-        <span className="h-1.5 w-1.5 rounded-full bg-faint" /> {mode !== 'build' ? 'Kinematic simulation (physics in Phase 5)' : 'Simulation: not connected (Phase 5)'}
+        <span className={cn('h-1.5 w-1.5 rounded-full', engine === 'physics' && simState === 'running' ? 'bg-ok' : 'bg-faint')} />
+        <span data-testid="status-engine">{mode === 'build' ? 'Simulation: off in Build Mode' : engine === 'physics' ? `Physics engine (Rapier) · ${simState}` : 'Kinematic engine'}</span>
       </span>
       <span className={cn(dirty ? 'text-warn' : 'text-muted')}>{dirty ? 'Draft: unsaved' : 'Draft: saved locally'}</span>
-      <span className="hidden text-faint sm:inline">Phase 4</span>
+      <span className="hidden text-faint sm:inline">Phase 5</span>
     </footer>
   );
 }

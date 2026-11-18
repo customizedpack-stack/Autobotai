@@ -23,7 +23,7 @@ export interface RobotActuator {
   /** Joint this actuator drives. */
   jointId: string;
   controlMode: ActuatorControlMode;
-  /** N·m for revolute joints, N for prismatic joints. Used by physics in Phase 5. */
+  /** N·m for revolute joints, N for prismatic joints. Limits the motor force in the Physics engine. */
   maxTorque: number;
   /** rad/s for revolute joints, m/s for prismatic joints. Enforced by the kinematic engine. */
   maxVelocity: number;

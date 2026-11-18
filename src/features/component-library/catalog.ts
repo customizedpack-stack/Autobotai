@@ -37,9 +37,9 @@ const HALF_PI = Math.PI / 2;
  */
 export const COMPONENT_CATALOG: readonly ComponentDefinition[] = [
   // Bodies
-  { id: 'body-box', name: 'Box Body', category: 'body', description: 'Rectangular rigid body.', geometry: { shape: 'box', size: [0.3, 0.2, 0.3] }, color: '#64748B', functionalIn: 'Phase 5 (mass & physics)' },
-  { id: 'body-cylinder', name: 'Cylinder Body', category: 'body', description: 'Round rigid body.', geometry: { shape: 'cylinder', radius: 0.15, height: 0.2 }, color: '#64748B', functionalIn: 'Phase 5 (mass & physics)' },
-  { id: 'body-sphere', name: 'Sphere Body', category: 'body', description: 'Spherical rigid body.', geometry: { shape: 'sphere', radius: 0.12 }, color: '#64748B', functionalIn: 'Phase 5 (mass & physics)' },
+  { id: 'body-box', name: 'Box Body', category: 'body', description: 'Rectangular rigid body.', geometry: { shape: 'box', size: [0.3, 0.2, 0.3] }, color: '#64748B', functionalIn: 'Physics: mass and collisions' },
+  { id: 'body-cylinder', name: 'Cylinder Body', category: 'body', description: 'Round rigid body.', geometry: { shape: 'cylinder', radius: 0.15, height: 0.2 }, color: '#64748B', functionalIn: 'Physics: mass and collisions' },
+  { id: 'body-sphere', name: 'Sphere Body', category: 'body', description: 'Spherical rigid body.', geometry: { shape: 'sphere', radius: 0.12 }, color: '#64748B', functionalIn: 'Physics: mass and collisions' },
   { id: 'body-plate', name: 'Mounting Plate', category: 'body', description: 'Thin plate for mounting parts.', geometry: { shape: 'box', size: [0.4, 0.02, 0.3] }, color: '#475569', functionalIn: 'Phase 2 (attachment)' },
   // Chassis
   { id: 'chassis-rect', name: 'Rectangular Chassis', category: 'chassis', description: 'Base frame for a wheeled robot.', geometry: { shape: 'box', size: [0.4, 0.1, 0.28] }, color: '#3B82F6', functionalIn: 'Phase 2 (attachment)' },
@@ -47,7 +47,7 @@ export const COMPONENT_CATALOG: readonly ComponentDefinition[] = [
   // Wheels
   { id: 'wheel-standard', name: 'Standard Wheel', category: 'wheel', description: 'Rubber drive wheel, 140 mm.', geometry: { shape: 'cylinder', radius: 0.07, height: 0.035 }, color: '#2F3A4C', rotation: [HALF_PI, 0, 0], functionalIn: 'Phase 3 (drive control)' },
   { id: 'wheel-large', name: 'Large Wheel', category: 'wheel', description: 'Rough-terrain wheel, 200 mm.', geometry: { shape: 'cylinder', radius: 0.1, height: 0.05 }, color: '#2F3A4C', rotation: [HALF_PI, 0, 0], functionalIn: 'Phase 3 (drive control)' },
-  { id: 'wheel-caster', name: 'Caster Ball', category: 'wheel', description: 'Passive support ball.', geometry: { shape: 'sphere', radius: 0.025 }, color: '#94A3B8', functionalIn: 'Phase 5 (contacts)' },
+  { id: 'wheel-caster', name: 'Caster Ball', category: 'wheel', description: 'Passive support ball.', geometry: { shape: 'sphere', radius: 0.025 }, color: '#94A3B8', functionalIn: 'Physics: low-friction contact' },
   // Motors
   { id: 'motor-dc', name: 'DC Motor', category: 'motor', description: 'Geared DC motor for wheels.', geometry: { shape: 'cylinder', radius: 0.02, height: 0.07 }, color: '#F59E0B', rotation: [HALF_PI, 0, 0], functionalIn: 'Phase 3 (motors)' },
   { id: 'motor-servo', name: 'Servo Motor', category: 'motor', description: 'Position-controlled servo.', geometry: { shape: 'box', size: [0.04, 0.04, 0.02] }, color: '#F59E0B', functionalIn: 'Phase 3 (motors)' },

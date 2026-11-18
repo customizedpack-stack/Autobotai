@@ -22,6 +22,7 @@ import { JOINT_COLORS } from '../viewport/jointStyle';
 import { ControllerSection } from './ControllerSection';
 import { JointDialog } from './JointDialog';
 import { JointInspector } from './JointInspector';
+import { PhysicsSection } from './PhysicsSection';
 import { VectorRow } from './VectorRow';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -213,6 +214,10 @@ function ObjectInspector({ object }: { object: SceneObject }) {
           onCommit={(v) => commit({ rotation: inDegrees ? [v[0] * DEG_TO_RAD, v[1] * DEG_TO_RAD, v[2] * DEG_TO_RAD] : v })}
         />
         <VectorRow label="Scale" unit="×" values={scale} step={0.1} decimals={3} min={0.01} testId="scl" onCommit={(v) => commit({ scale: v })} />
+      </Section>
+
+      <Section title="Physics">
+        <PhysicsSection object={object} />
       </Section>
 
       <Section title="Metadata">

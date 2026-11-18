@@ -1,3 +1,4 @@
+import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 import type React from 'react';
 import { Axis3d, Crosshair, Globe, Grid3x3, Link2, Magnet, Maximize, MousePointer2, Move3d, Rotate3d, Scaling, SunDim } from 'lucide-react';
 import { CAMERA_VIEWS } from '../../features/viewport/cameraPresets';
@@ -109,9 +110,7 @@ export function ViewportToolbar() {
           className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-2"
           data-testid="kinematic-banner"
         >
-          <span className="rounded-md border border-warn/40 bg-panel/90 px-2.5 py-1 text-[11px] font-medium text-warn">
-            Kinematic Simulation — Physics Engine Integration Coming in Phase 5
-          </span>
+          <EngineBanner />
         </div>
       )}
       {showHints && !control && (
@@ -120,5 +119,24 @@ export function ViewportToolbar() {
         </div>
       )}
     </>
+  );
+}
+
+/** Clear indicator of which engine moves the robot. */
+function EngineBanner() {
+  const engine = useSimulationStore((s) => s.engine);
+  const state = useSimulationStore((s) => s.state);
+  if (engine === 'physics') {
+    const label = state === 'running' ? 'Physics Simulation — Running' : state === 'paused' ? 'Physics Simulation — Paused' : state === 'starting' ? 'Physics Simulation — Starting' : 'Physics Simulation — Stopped';
+    return (
+      <span className="rounded-md border border-ok/40 bg-panel/90 px-2.5 py-1 text-[11px] font-medium text-ok" data-engine="physics" data-state={state}>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-md border border-warn/40 bg-panel/90 px-2.5 py-1 text-[11px] font-medium text-warn" data-engine="kinematic">
+      Kinematic Simulation — No Physics
+    </span>
   );
 }

@@ -14,6 +14,8 @@ import { RAD_TO_DEG } from '../../utils/math';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { JointPreview } from './JointPreview';
+import { SimulationPanel } from '../../features/physics/components/SimulationPanel';
+import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
@@ -90,6 +92,7 @@ export function RobotControlPanel({ variant = 'control' }: { variant?: 'control'
   const setSpeed = useRobotStateStore((s) => s.setSpeedPercent);
   const rootPoses = useRobotStateStore((s) => s.rootPoses);
   const runtime = useRobotStateStore((s) => s.actuators);
+  const physics = useSimulationStore((s) => s.engine === 'physics');
 
   const controller = controllers.find((c) => c.type === 'differentialDrive');
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,7 +121,10 @@ export function RobotControlPanel({ variant = 'control' }: { variant?: 'control'
             <span data-testid="movement-status">{movement.status}</span>
           </Badge>
         </div>
-        <p className="mt-1.5 text-[10.5px] leading-relaxed text-faint">Kinematic Simulation — Physics Engine Integration Coming in Phase 5</p>
+      </Section>
+
+      <Section title="Simulation">
+        <SimulationPanel />
       </Section>
 
       {!controller ? (
@@ -292,8 +298,14 @@ export function RobotControlPanel({ variant = 'control' }: { variant?: 'control'
 
       {!code && (
         <Section title="Joint preview">
-        <JointPreview />
-      </Section>
+          {physics ? (
+            <p className="text-[11px] text-muted" data-testid="joint-preview-physics">
+              Joint preview is a kinematic tool. In Physics, joints move through their actuators (servos and motors) and Code Studio.
+            </p>
+          ) : (
+            <JointPreview />
+          )}
+        </Section>
       )}
     </div>
   );

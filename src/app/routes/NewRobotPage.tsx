@@ -173,7 +173,7 @@ export function NewRobotPage() {
               <dt className="text-faint">Storage</dt>
               <dd>This browser</dd>
             </dl>
-            <Badge tone="warn">Physics in Phase 5</Badge>
+            <Badge tone="ok">Physics simulation included</Badge>
             <Button type="submit" variant="primary" className="w-full" disabled={touched && nameError !== null}>
               Create Workspace
             </Button>
