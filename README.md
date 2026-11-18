@@ -2,7 +2,15 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 5 — Physics Simulation** (on top of Phases 1–4). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot with the keyboard or on-screen buttons, program it with Blockly blocks or JavaScript, and now run it in a **real physics simulation** (Rapier): mass, gravity, friction, motors with torque limits and collisions. The kinematic engine from Phase 3 is still there and is the default (see `docs/`).
+**Current status: Phase 6 — Sensor Simulation** (on top of Phases 1–5). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), and now give it **sensors**: a distance sensor that casts real rays, wheel encoders and an IMU. Sensor readings appear in the workspace and in your programs (see `docs/`).
+
+## Sensors
+
+1. A new **Explorer Bot** comes with four sensors: `front-distance`, `left-encoder`, `right-encoder` and `main-imu`. In Build Mode, the inspector's **Sensors** section lists them; click one to change its settings (range, rays, rate, ticks per revolution, mount position). Older robots get them with **Add default sensors**.
+2. Open **Control** or **Simulate** and the **Sensors** tab at the bottom to watch live readings. The distance sensor needs the **Physics** engine; encoders and the IMU work in both engines.
+3. In **Code**, read sensors with `robotSensors`, for example `await robotSensors.distance("front-distance").read()`, or use the Blockly **Sensors** blocks.
+
+Details: `docs/architecture/SENSOR-SIMULATION.md` and `docs/architecture/C3-SENSOR-STREAM.md`.
 
 ## Physics simulation
 
@@ -79,7 +87,7 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors (needs `npm run build` first and Chrome installed) |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology
@@ -97,6 +105,7 @@ src/
     controls/           C2 Command Bus, movement engine, differential drive, keyboard, Robot Control API
     code-studio/        Blockly and JavaScript programming, sandboxed execution, program storage
     physics/            Rapier physics: world, bodies, joints, motors, simulation manager, debug view
+    sensors/            Sensor simulation: distance rays, wheel encoders, IMU, C3 Sensor Stream, sensor API and UI
     builder/            Drop placement rules for the Robot Builder
     viewport/           Three.js scene, camera views, gizmos, joint markers, drag-and-drop
     inspector/          Properties panel
@@ -104,13 +113,13 @@ src/
     robot-library/      Robot categories and templates
     projects/           Project creation and editor commands
     console/            Console, bus events and status views
-    sensors/ robot-formats/
+    robot-formats/
                         Reserved boundaries for later phases (README inside each)
   core/bus/       Connector Bus: typed message system between modules
   stores/         Zustand stores (project, scene + history, robot runtime state, selection, workspace, viewport, console, settings)
   types/          Shared TypeScript model (robot project, scene objects, console, viewport)
   hooks/ utils/   Shortcuts and helpers
-docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3, Code Studio and its sandbox, physics engine and integration) and test screenshots
+docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3, Code Studio and its sandbox, physics engine and integration, sensors and the C3 Sensor Stream) and test screenshots
 tests/e2e/        Browser test suites (one per phase)
 ```
 

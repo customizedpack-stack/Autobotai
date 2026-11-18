@@ -145,3 +145,7 @@ The host counts every incoming message per session per second as a second layer,
 - **Browser** (`tests/e2e/code-studio.e2e.mjs`):
   - An endless loop with UI frame measurement, then Stop in under 500 ms (measured about 17 ms) with the worker gone.
   - A probe program confirming that fetch, XHR, WebSocket, importScripts, dynamic import, localStorage, IndexedDB, document, window, parent, eval, Function and postMessage are all blocked.
+
+## Phase 6: sensor operations
+
+Six read-only operations were added to the allowlist: `sensor.list`, `sensor.read`, `sensor.subscribe`, `sensor.unsubscribe`, `sensor.resetEncoder` and `sensor.odometry`. They never move the robot, so they are answered while the program is paused, and they are not counted against the 30 commands per second. One host → worker message was added: `{ v: 1, kind: "sensor", subscriptionId, reading }` (a worker sending this kind is rejected). Checks and limits are described in `SENSOR-SIMULATION.md` ("Security"), and the program API in the same document.

@@ -88,3 +88,7 @@ Optional per-part field `SceneObject.physics` (`mass`, `density`, `friction`, `r
 - Old projects have no field and get category defaults; nothing is written back.
 - On load, valid values are kept and invalid ones are dropped with a warning (`sanitizePartPhysics`).
 - The engine choice and simulation settings are runtime only and never saved.
+
+## 8. Sensors (Phase 6)
+
+The sensor manager is called from the same physics tick (after each `controller.tick`), reads the world through a read-only source, and never moves anything: the physics engine keeps full ownership of robot movement. See `C3-SENSOR-STREAM.md` and `SENSOR-SIMULATION.md`.
