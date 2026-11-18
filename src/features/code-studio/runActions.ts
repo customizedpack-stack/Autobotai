@@ -9,6 +9,7 @@ import { editors } from './editorRegistry';
 import { activeProgram, createProgram } from './programActions';
 import { reportProgramIssues, runProgram } from './runtime/executionManager';
 import { useProgramStore } from './storage/programStore';
+import { useSimulationStore } from '../physics/simulation/simulationStore';
 import type { RobotProgram } from './storage/programTypes';
 
 /**
@@ -108,9 +109,36 @@ export async function generateActiveBlockly(): Promise<GeneratedProgram | null> 
   return result?.generated ?? null;
 }
 
+/**
+ * Physics engine: the program needs a running simulation. A stopped simulation is
+ * started for the program; a paused one must be resumed by the user first.
+ */
+async function ensureEngineReady(program: RobotProgram): Promise<boolean> {
+  const { engine, state } = useSimulationStore.getState();
+  if (engine !== 'physics' || state === 'running') return true;
+  if (state === 'paused') {
+    reportProgramIssues(program.id, program.name, [{ message: 'The physics simulation is paused. Resume it to run the program.', severity: 'error' }]);
+    return false;
+  }
+  const { startSimulation } = await import('../physics/simulation/simulationManager');
+  if (await startSimulation()) {
+    log.info('code', 'Physics simulation started for this program.');
+    return true;
+  }
+  reportProgramIssues(program.id, program.name, [{ message: useSimulationStore.getState().error ?? 'The physics simulation could not start.', severity: 'error' }]);
+  return false;
+}
+
 export async function runActiveProgram(): Promise<boolean> {
   const program = activeProgram();
   if (!program) return false;
+  const { engine, state } = useSimulationStore.getState();
+  if (engine === 'physics' && state !== 'running') {
+    const projectBefore = useSceneStore.getState().projectId;
+    if (!(await ensureEngineReady(program))) return false;
+    // Starting the simulation is asynchronous: make sure the same program is still open.
+    if (useSceneStore.getState().projectId !== projectBefore || activeProgram()?.id !== program.id) return cancelled('Run');
+  }
   if (program.language === 'javascript') {
     const source = useCodeStudioStore.getState().drafts[program.id] ?? program.source;
     return runProgram({ programId: program.id, programName: program.name, language: 'javascript', code: source }).ok;

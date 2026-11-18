@@ -317,6 +317,7 @@ function endRun(outcome: Exclude<ExecutionOutcome, 'stopped'>, error?: Execution
  * stops the robot immediately.
  */
 export function stopProgram(reason = 'Program stopped.'): void {
+  pausedBySimulation = false;
   const wasActive = Boolean(session);
   if (wasActive) setStatus({ state: 'stopping' });
   const ended = teardown();
@@ -394,7 +395,28 @@ export function connectExecutionManager(): void {
   bus.subscribe('project.deleted', ({ projectId }) => {
     if (session && useSceneStore.getState().projectId === projectId) stopProgram('Program stopped because the project was deleted.');
   });
+  // Phase 5: programs follow the physics simulation. Pausing the simulation pauses the
+  // program; resuming resumes it; stopping the simulation or switching engines stops it.
+  bus.subscribe('simulation.changed', ({ engine, state, previousEngine, previousState }) => {
+    if (!session) return;
+    if (engine !== previousEngine) {
+      stopProgram('Program stopped because the simulation engine changed.');
+      return;
+    }
+    if (engine !== 'physics') return;
+    if (state === 'stopped') {
+      stopProgram('Program stopped because the physics simulation stopped.');
+    } else if (state === 'paused' && previousState === 'running' && status().state === 'running') {
+      if (pauseProgram()) pausedBySimulation = true;
+    } else if (state === 'running' && previousState === 'paused' && pausedBySimulation) {
+      pausedBySimulation = false;
+      resumeProgram();
+    }
+  });
 }
+
+/** True while the program is paused because the physics simulation was paused. */
+let pausedBySimulation = false;
 
 export { BridgeError };
 
