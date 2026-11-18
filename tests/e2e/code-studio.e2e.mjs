@@ -260,6 +260,25 @@ console.log("drive finished");
     assert(stopMs < 500, `Stop took ${stopMs} ms`);
   });
 
+  await step('A message flood ends the run as a security error; the UI stays responsive', async () => {
+    await setCode('while (true) { console.log("spam"); }\n');
+    const t0 = Date.now();
+    await page.getByTestId('run-program').click();
+    await page.getByTestId('program-error').getByText(/too many messages/).waitFor({ timeout: 10000 });
+    assert(Date.now() - t0 < 8000, 'flood was not stopped quickly');
+    assert((await sandboxes()) === 0, 'flooding worker still alive');
+    const frames = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          let n = 0;
+          const t = performance.now();
+          const tick = () => (++n, performance.now() - t < 500 ? requestAnimationFrame(tick) : resolve(n));
+          requestAnimationFrame(tick);
+        }),
+    );
+    assert(frames >= 3, `UI not responsive after the flood (${frames} frames)`);
+  });
+
   await step('Sandbox: no network, storage, DOM or app access from programs', async () => {
     await page.evaluate(() => localStorage.setItem('arai.secret', 'APP-SECRET'));
     await setCode(`const probe = async (name, fn) => { try { const v = await fn(); console.log(name + " OPEN " + String(v)); } catch (e) { console.log(name + " BLOCKED"); } };

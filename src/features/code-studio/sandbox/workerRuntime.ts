@@ -27,6 +27,10 @@ export interface RuntimeOptions {
   maxLogLength: number;
   /** Lines in the worker script before the first line of the user's program. */
   lineOffset: number;
+  /** Outgoing messages per second; above it output is dropped and robot calls fail (defaults: no limit). */
+  maxMessagesPerSecond?: number;
+  /** Outgoing messages per second at which the program is ended as a flood. */
+  terminateAtMessagesPerSecond?: number;
 }
 
 export interface RuntimeHandle {
@@ -36,6 +40,11 @@ export interface RuntimeHandle {
 export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions): RuntimeHandle {
   'use strict';
   const { sessionId, maxLogLength, lineOffset } = options;
+  const softLimit = options.maxMessagesPerSecond ?? Number.POSITIVE_INFINITY;
+  const hardLimit = options.terminateAtMessagesPerSecond ?? Number.POSITIVE_INFINITY;
+  let windowStart = Date.now();
+  let windowCount = 0;
+  let dropNoticeSent = false;
   const post = scope.postMessage.bind(scope);
   const realSetTimeout = scope.setTimeout.bind(scope);
   const realClearTimeout = scope.clearTimeout.bind(scope);
@@ -99,6 +108,28 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
     send('fail', { message: describe(error), line: lineOf(error) });
   };
 
+  /**
+   * Outgoing message rate, enforced at the source: a flood must never pile up in the
+   * browser's message queues (the host also checks, as a second layer).
+   */
+  const rate = (): 'ok' | 'drop' | 'flood' => {
+    const now = Date.now();
+    if (now - windowStart >= 1000) {
+      windowStart = now;
+      windowCount = 0;
+      dropNoticeSent = false;
+    }
+    windowCount += 1;
+    if (windowCount > hardLimit) {
+      if (!finished) {
+        finished = true;
+        send('fail', { message: `The program sent too many messages (more than ${hardLimit} per second) and was stopped.`, code: 'flood' });
+      }
+      return 'flood';
+    }
+    return windowCount > softLimit ? 'drop' : 'ok';
+  };
+
   const checkDone = () => {
     realSetTimeout(() => {
       if (!finished && mainSettled && outstanding === 0) {
@@ -138,6 +169,9 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
   /** Send one request to the host. Resolves with the host's answer. */
   const call = (op: string, args: Record<string, unknown>): Promise<unknown> => {
     if (finished) return new Promise(() => undefined);
+    const allowed = rate();
+    if (allowed === 'flood') return new Promise(() => undefined);
+    if (allowed === 'drop') return Promise.reject(new RobotCommandError(`Too many messages: the limit is ${softLimit} per second.`));
     return new Promise((resolve, reject) => {
       seq += 1;
       pending.set(seq, { resolve, reject });
@@ -187,6 +221,16 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
     }
   };
   const logger = (level: 'info' | 'warning' | 'error') => (...values: unknown[]) => {
+    if (finished) return;
+    const allowed = rate();
+    if (allowed === 'flood') return;
+    if (allowed === 'drop') {
+      if (!dropNoticeSent) {
+        dropNoticeSent = true;
+        send('log', { level: 'warning', text: `Some output was not shown: more than ${softLimit} messages per second.` });
+      }
+      return;
+    }
     send('log', { level, text: values.map(format).join(' ').slice(0, maxLogLength) });
   };
   const programConsole = Object.freeze({
@@ -307,7 +351,10 @@ const USER_CODE_OPEN = 'rt.start(async function araiProgram() {';
  * in an async function (so `await` works at the top level of the program).
  * The user code is never evaluated with eval / new Function.
  */
-export function buildWorkerSource(userCode: string, options: { sessionId: string; maxLogLength: number }): { source: string; lineOffset: number } {
+export function buildWorkerSource(
+  userCode: string,
+  options: { sessionId: string; maxLogLength: number; maxMessagesPerSecond?: number; terminateAtMessagesPerSecond?: number },
+): { source: string; lineOffset: number } {
   const runtime = araiWorkerRuntime.toString();
   const prefix = ['"use strict";', '(function () {'];
   // The runtime (multi-line) and the options are on the third line; its line count does not depend on the numbers.

@@ -82,7 +82,9 @@ Malformed messages are ignored and logged. After more than 20 in one run, the ru
 | Console message length | 500 characters | Truncated |
 | Sandbox start | 5 s | Run ended (sandbox error) |
 | Invalid messages | 20 per run | Run ended (security error) |
-| Requests held while paused | 50 | Rejected at once with a readable error; `stop()` is always accepted |
+| Requests held while paused | 50 | Rejected at once with a readable error. `stop()` never enters the queue (see below) |
+| Incoming messages per session | 1000 per second | Rejected. Calls get an error answer, so promises settle. Enforced in the worker runtime **and** on the host |
+| Message flood | more than 5000 per second | The run is ended as a security error. The worker reports it and the host also checks. Run-ending messages (`done`, `fail`) are never rate-filtered |
 
 ## Lifecycle and safety rules
 
@@ -100,7 +102,12 @@ Malformed messages are ignored and logged. After more than 20 in one run, the ru
 While paused, **nothing that moves the robot is executed**:
 - Read-only requests (`getState`, `joints`, `joint.info`) are answered at once.
 - Other requests wait in a bounded queue (50) and run in program order on resume. Requests beyond the limit are rejected at once.
-- A program's `stop()` is always accepted, and Resume then does not restart the interrupted motion.
+- A program's `stop()` during a pause is handled at once and never queued:
+  - The first one goes through the existing API and C2, so it is validated and tracked.
+  - Repeated stops in the same pause are merged into it.
+  - The interrupted motion and held motion requests are settled as stopped or superseded, so Resume cannot restart old movement.
+  - The queue therefore never exceeds its limit.
+- The toolbar **Stop** never goes through the queue: it invalidates the session, kills the worker and stops the robot.
 - Ending the run rejects every held request, so no promise is left pending.
 
 Pause is **cooperative**:
@@ -109,6 +116,16 @@ Pause is **cooperative**:
 3. A JavaScript program halts at its next robot call or `wait()`.
 
 **Limitation:** JavaScript code that loops **without** calling the robot API or `wait()` cannot be paused, only stopped. The robot is still stopped and no commands are accepted while paused. Resume continues interrupted timed moves for the remaining time and re-issues untimed motions and joint targets.
+
+## Message flood protection
+
+A worker can post messages much faster than the main thread can read them. A host-side limit alone acts too late: the messages pile up in the browser's queues. In testing, this crashed the page.
+
+Programs can only send messages through the restricted runtime, because `postMessage` is removed from the worker scope. So the runtime enforces the same limits at the source:
+- Over 1000 messages per second, extra output is dropped (with one notice) and extra robot calls fail at once inside the worker.
+- Over 5000 per second, the runtime sends a single flood report (`fail` with `code: 'flood'`) and stops sending.
+
+The host counts every incoming message per session per second as a second layer, rejects the excess, and ends sessions above the threshold. Stale sessions are dropped before any counting.
 
 ## Remaining risks (honest assessment)
 

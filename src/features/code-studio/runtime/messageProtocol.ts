@@ -44,7 +44,7 @@ export type WorkerMessage =
   | { v: 1; kind: 'call'; sessionId: string; id: number; op: SandboxOp; args: SandboxArgs }
   | { v: 1; kind: 'log'; sessionId: string; level: LogLevelFromProgram; text: string }
   | { v: 1; kind: 'done'; sessionId: string }
-  | { v: 1; kind: 'fail'; sessionId: string; message: string; line?: number };
+  | { v: 1; kind: 'fail'; sessionId: string; message: string; line?: number; code?: 'flood' };
 
 export type HostMessage =
   | { v: 1; kind: 'result'; id: number; ok: true; value: unknown }
@@ -137,7 +137,8 @@ export function parseWorkerMessage(raw: unknown, sessionId: string): ParseResult
     case 'fail': {
       if (typeof raw.message !== 'string') return { ok: false, reason: 'Invalid failure message.' };
       const line = typeof raw.line === 'number' && Number.isInteger(raw.line) && raw.line > 0 ? raw.line : undefined;
-      return { ok: true, value: { v: 1, kind: 'fail', sessionId, message: raw.message.slice(0, MAX_TEXT), line } };
+      const code = raw.code === 'flood' ? ('flood' as const) : undefined;
+      return { ok: true, value: { v: 1, kind: 'fail', sessionId, message: raw.message.slice(0, MAX_TEXT), line, ...(code ? { code } : {}) } };
     }
     default:
       return { ok: false, reason: `Message kind "${String(raw.kind).slice(0, 40)}" is not allowed.` };

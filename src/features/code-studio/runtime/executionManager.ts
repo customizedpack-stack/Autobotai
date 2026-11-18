@@ -55,6 +55,10 @@ interface Session {
   logsTotal: number;
   logDropWarned: boolean;
   startTimer: ReturnType<typeof setTimeout> | null;
+  /** Incoming-message rate window (per session). */
+  messageWindowStart: number;
+  messagesInWindow: number;
+  messageDropWarned: boolean;
 }
 
 let limits: ExecutionLimits = DEFAULT_LIMITS;
@@ -110,7 +114,13 @@ export function runProgram(request: RunRequest): RunResult {
   if (useRobotStateStore.getState().mode !== 'code') setWorkspaceMode('code');
 
   const id = createId('run');
-  const { source, lineOffset } = buildWorkerSource(request.code, { sessionId: id, maxLogLength: limits.maxLogLength });
+  const { source, lineOffset } = buildWorkerSource(request.code, {
+    sessionId: id,
+    maxLogLength: limits.maxLogLength,
+    // The same message limits are enforced inside the worker (at the source) and here (second layer).
+    maxMessagesPerSecond: limits.maxMessagesPerSecond,
+    terminateAtMessagesPerSecond: limits.terminateAtMessagesPerSecond,
+  });
   const current: Session = {
     id,
     programId: request.programId,
@@ -123,6 +133,9 @@ export function runProgram(request: RunRequest): RunResult {
     logsTotal: 0,
     logDropWarned: false,
     startTimer: null,
+    messageWindowStart: performance.now(),
+    messagesInWindow: 0,
+    messageDropWarned: false,
   };
   session = current;
   setStatus({ ...IDLE_STATUS, state: 'preparing', sessionId: id, programId: request.programId, programName: request.programName });
@@ -156,9 +169,44 @@ function reply(current: Session, message: HostMessage): void {
   if (session === current) current.sandbox?.send(message);
 }
 
+/**
+ * General incoming-message rate protection, separate from the command-rate (HostBridge)
+ * and console-log limits. Returns 'ok', 'reject' (over the per-second limit) or 'terminate'.
+ */
+function checkMessageRate(current: Session): 'ok' | 'reject' | 'terminate' {
+  const now = performance.now();
+  if (now - current.messageWindowStart >= 1000) {
+    current.messageWindowStart = now;
+    current.messagesInWindow = 0;
+  }
+  current.messagesInWindow += 1;
+  if (current.messagesInWindow > limits.terminateAtMessagesPerSecond) return 'terminate';
+  if (current.messagesInWindow > limits.maxMessagesPerSecond) return 'reject';
+  return 'ok';
+}
+
 function onWorkerMessage(current: Session, raw: unknown): void {
-  // Late messages from a stopped or replaced session are ignored.
+  // Late messages from a stopped, replaced or terminated session are ignored (before any work).
   if (session !== current) return;
+  // Messages that END the run (done / fail, for example the worker's own flood report) are never rate-filtered.
+  const kind = (raw as { kind?: unknown } | null)?.kind;
+  const rate = kind === 'done' || kind === 'fail' ? 'ok' : checkMessageRate(current);
+  if (rate === 'terminate') {
+    endRun('error', { message: `The program sent too many messages (more than ${limits.terminateAtMessagesPerSecond} per second) and was stopped.`, kind: 'security' });
+    return;
+  }
+  if (rate === 'reject') {
+    if (!current.messageDropWarned) {
+      current.messageDropWarned = true;
+      log.warning('code', `The program sends more than ${limits.maxMessagesPerSecond} messages per second; extra messages are rejected.`, { sessionId: current.id });
+    }
+    // A rejected robot call still gets an answer, so the program's promise settles.
+    const call = raw as { kind?: unknown; id?: unknown; sessionId?: unknown };
+    if (call && call.kind === 'call' && call.sessionId === current.id && typeof call.id === 'number' && Number.isInteger(call.id) && call.id > 0) {
+      reply(current, { v: 1, kind: 'result', id: call.id, ok: false, error: `Too many messages: the limit is ${limits.maxMessagesPerSecond} per second.` });
+    }
+    return;
+  }
   const parsed = parseWorkerMessage(raw, current.id);
   if (!parsed.ok) {
     current.invalidMessages += 1;
@@ -192,7 +240,7 @@ function onWorkerMessage(current: Session, raw: unknown): void {
       endRun('completed');
       return;
     case 'fail':
-      endRun('error', { message: message.message, line: message.line, kind: 'runtime' });
+      endRun('error', { message: message.message, line: message.line, kind: message.code === 'flood' ? 'security' : 'runtime' });
       return;
   }
 }

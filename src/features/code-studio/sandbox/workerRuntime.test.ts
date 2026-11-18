@@ -175,4 +175,33 @@ describe('sandbox worker runtime', () => {
     await tick(10);
     expect(sent.some((m) => m.kind === 'done')).toBe(false);
   });
+
+  // ── Final review: message flood protection at the source ──
+  it('drops output above the per-second limit (one notice) and ends the program as a flood above the hard limit', async () => {
+    const { scope, sent } = fakeScope();
+    const rt = araiWorkerRuntime(scope, { sessionId: 's', maxLogLength: 100, lineOffset: 0, maxMessagesPerSecond: 10, terminateAtMessagesPerSecond: 50 });
+    rt.start(async () => {
+      for (let i = 0; i < 100_000; i++) g(scope).console.log('spam', i);
+    });
+    await tick();
+    const logs = sent.filter((m) => m.kind === 'log');
+    // ready (not counted) + 10 logs + 1 drop notice; nothing more crosses the boundary.
+    expect(logs).toHaveLength(11);
+    expect(logs.at(-1)).toMatchObject({ level: 'warning', text: 'Some output was not shown: more than 10 messages per second.' });
+    const fails = sent.filter((m) => m.kind === 'fail');
+    expect(fails).toEqual([{ v: 1, kind: 'fail', sessionId: 's', message: 'The program sent too many messages (more than 50 per second) and was stopped.', code: 'flood' }]);
+    expect(sent.length).toBeLessThan(20);
+  });
+
+  it('rejects robot calls above the per-second limit inside the worker (no message sent)', async () => {
+    const { scope, sent } = fakeScope();
+    const rt = araiWorkerRuntime(scope, { sessionId: 's', maxLogLength: 100, lineOffset: 0, maxMessagesPerSecond: 3, terminateAtMessagesPerSecond: 100 });
+    const outcomes: string[] = [];
+    rt.start(async () => {
+      for (let i = 0; i < 5; i++) g(scope).robotControl.stop().then(() => outcomes.push('ok'), (e: Error) => outcomes.push(e.message));
+    });
+    await tick();
+    expect(sent.filter((m) => m.kind === 'call')).toHaveLength(3);
+    expect(outcomes).toEqual(['Too many messages: the limit is 3 per second.', 'Too many messages: the limit is 3 per second.']);
+  });
 });

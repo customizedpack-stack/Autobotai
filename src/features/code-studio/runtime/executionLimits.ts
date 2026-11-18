@@ -19,8 +19,12 @@ export interface ExecutionLimits {
   startTimeoutMs: number;
   /** Malformed messages tolerated before the run is ended as a security error. */
   maxInvalidMessages: number;
-  /** Requests held while the program is paused; more are rejected (stop() is always accepted). */
+  /** Requests held while the program is paused; more are rejected (stop() is handled at once, never queued). */
   maxPausedRequests: number;
+  /** Incoming worker messages (of any kind) per second per session; more are rejected. */
+  maxMessagesPerSecond: number;
+  /** Incoming worker messages per second at which the session is ended as abusive. */
+  terminateAtMessagesPerSecond: number;
 }
 
 export const DEFAULT_LIMITS: ExecutionLimits = {
@@ -33,6 +37,8 @@ export const DEFAULT_LIMITS: ExecutionLimits = {
   startTimeoutMs: 5000,
   maxInvalidMessages: 20,
   maxPausedRequests: 50,
+  maxMessagesPerSecond: 1000,
+  terminateAtMessagesPerSecond: 5000,
 };
 
 /** Human-readable summary, shown in the UI and the docs. */

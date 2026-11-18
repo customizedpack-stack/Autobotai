@@ -129,7 +129,7 @@ Loading:
 | Action | What happens |
 | --- | --- |
 | **Run** | Checks (open project, non-empty program, syntax, drive readiness when driving is used, joints and literal targets), switches to Code Studio mode, creates a session, starts the sandbox |
-| **Pause** | The robot is stopped through the API. New robot requests are held in a bounded queue (50; more are rejected); read-only requests are answered. The program halts at its next robot call, `wait()` or loop checkpoint |
+| **Pause** | The robot is stopped through the API. New robot requests are held in a bounded queue (50; more are rejected). Read-only requests are answered. `stop()` is handled at once, merged and never queued, and cancels the old motion. The program halts at its next robot call, `wait()` or loop checkpoint |
 | **Resume** | Re-issues the interrupted motion for the time that was left. Waits continue, then held requests run in order |
 | **Stop** | Always available. Invalidates the session, kills the worker (removes the frame) and stops the robot through the API |
 | **Reset Robot** | Stops a running program, then calls the existing `robotControl.reset()` (runtime pose only; the design is unchanged) |

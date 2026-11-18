@@ -232,4 +232,128 @@ describe('execution manager', () => {
     stopProgram();
     expect(events('command.accepted').at(-1)!.command).toMatchObject({ type: 'stop', source: 'code' });
   });
+
+  // ── Final review: incoming worker message rate protection ──
+  describe('incoming message rate protection', () => {
+    /** A fake sandbox driven by the test; records replies and whether it was destroyed. */
+    function floodSandbox() {
+      const box = { send: null as null | ((raw: unknown) => void), sessionId: '', replies: [] as { ok: boolean; error?: string }[], destroyed: false };
+      configureExecution({
+        limits: { maxMessagesPerSecond: 100, terminateAtMessagesPerSecond: 1000 },
+        sandbox: () => (options) => {
+          box.sessionId = options.sessionId;
+          box.send = options.onWorkerMessage;
+          box.destroyed = false;
+          setTimeout(() => options.onWorkerMessage({ v: 1, kind: 'ready', sessionId: options.sessionId }), 0);
+          return { send: (m) => box.replies.push(m as { ok: boolean; error?: string }), destroy: () => (box.destroyed = true) };
+        },
+      });
+      return box;
+    }
+    const call = (box: { sessionId: string }, id: number) => ({ v: 1, kind: 'call', sessionId: box.sessionId, id, op: 'getState', args: {} });
+
+    it('rejects messages above the per-second limit (calls get an error answer) without ending the run', async () => {
+      const box = floodSandbox();
+      runJs('await wait(10000);');
+      await until(() => state() === 'running');
+      for (let i = 1; i <= 300; i++) box.send!(call(box, i));
+      await new Promise((r) => setTimeout(r, 20));
+      const errors = box.replies.filter((r) => !r.ok);
+      expect(errors).toHaveLength(201); // 300 calls + the ready message = 301 messages; 100 allowed
+      expect(errors[0]!.error).toBe('Too many messages: the limit is 100 per second.');
+      expect(box.replies.filter((r) => r.ok)).toHaveLength(99);
+      expect(state()).toBe('running');
+      expect(messages()).toContain('The program sends more than 100 messages per second; extra messages are rejected.');
+    });
+
+    it('ends an abusive session above the termination threshold and ignores its later messages', async () => {
+      const box = floodSandbox();
+      runJs('await robotControl.drive.set(0.5); await wait(10000);');
+      await until(() => state() === 'running');
+      box.send!({ v: 1, kind: 'call', sessionId: box.sessionId, id: 1, op: 'drive.set', args: { speed: 0.5 } });
+      await until(() => useRobotStateStore.getState().movement.intent.linear === 0.5);
+      for (let i = 2; i <= 1200; i++) box.send!({ v: 1, kind: 'log', sessionId: box.sessionId, level: 'info', text: 'spam' });
+      expect(state()).toBe('error');
+      expect(useExecutionStore.getState().error).toMatchObject({ kind: 'security', message: 'The program sent too many messages (more than 1000 per second) and was stopped.' });
+      expect(box.destroyed).toBe(true);
+      expect(useRobotStateStore.getState().movement.intent.linear).toBe(0);
+      const replies = box.replies.length;
+      const accepted = events('command.accepted').length;
+      for (let i = 0; i < 50; i++) box.send!(call(box, 5000 + i));
+      box.send!({ v: 1, kind: 'call', sessionId: box.sessionId, id: 9999, op: 'drive.set', args: { speed: 1 } });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(box.replies.length).toBe(replies);
+      expect(events('command.accepted').length).toBe(accepted);
+    });
+
+    it('counts messages per session: a new run starts with a fresh window', async () => {
+      const box = floodSandbox();
+      runJs('await wait(10000);');
+      await until(() => state() === 'running');
+      for (let i = 1; i <= 150; i++) box.send!(call(box, i));
+      stopProgram();
+      box.replies.length = 0;
+      runJs('await wait(10000);');
+      await until(() => state() === 'running');
+      for (let i = 1; i <= 50; i++) box.send!(call(box, i));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(box.replies.filter((r) => !r.ok)).toHaveLength(0);
+      expect(box.replies.filter((r) => r.ok)).toHaveLength(50);
+    });
+
+    it('Stop stays responsive during a continuous flood and ends it at once', async () => {
+      const box = floodSandbox();
+      // Re-install the flood sandbox with a termination threshold that the flood never reaches.
+      configureExecution({
+        limits: { maxMessagesPerSecond: 100, terminateAtMessagesPerSecond: 1_000_000 },
+        sandbox: () => (options) => {
+          box.sessionId = options.sessionId;
+          let alive = true;
+          let id = 0;
+          const pump = () => {
+            if (!alive) return;
+            for (let i = 0; i < 200; i++) options.onWorkerMessage({ v: 1, kind: 'call', sessionId: options.sessionId, id: ++id, op: 'getState', args: {} });
+            setTimeout(pump, 0);
+          };
+          setTimeout(() => {
+            options.onWorkerMessage({ v: 1, kind: 'ready', sessionId: options.sessionId });
+            pump();
+          }, 0);
+          return { send: () => undefined, destroy: () => ((alive = false), (box.destroyed = true)) };
+        },
+      });
+      runJs('await wait(10000);');
+      await until(() => state() === 'running');
+      await new Promise((r) => setTimeout(r, 30));
+      const t0 = performance.now();
+      stopProgram();
+      expect(performance.now() - t0).toBeLessThan(50);
+      expect(state()).toBe('idle');
+      expect(box.destroyed).toBe(true);
+    });
+
+    it('normal Blockly and JavaScript programs still run with the default limits', async () => {
+      configureExecution({ sandbox: inProcessSandbox() });
+      const { generateFromSource } = await import('../blockly/generator');
+      const { starterBlocklyWorkspace } = await import('../storage/starterPrograms');
+      useRobotStateStore.getState().setSpeedPercent(100);
+      const blocks = generateFromSource(starterBlocklyWorkspace().replace('"NUM":2000', '"NUM":200').replace('"NUM":1000', '"NUM":100'));
+      expect(blocks.ok).toBe(true);
+      expect(runProgram({ programId: 'p_b', programName: 'Blocks', language: 'blockly', code: blocks.code, requirements: blocks.requirements }).ok).toBe(true);
+      await until(() => state() === 'completed', 4000);
+      expect(runJs('for (let i = 0; i < 40; i++) { console.log(i); }\nawait robotControl.drive.forward({ speed: 1, durationMs: 100 });').ok).toBe(true);
+      await until(() => state() === 'completed', 4000);
+      expect(messages()).toContain('Program: 39');
+    });
+
+    it('a run-ending report (done / fail) is never rate-filtered, even after a flood', async () => {
+      const box = floodSandbox();
+      runJs('await wait(10000);');
+      await until(() => state() === 'running');
+      for (let i = 0; i < 500; i++) box.send!({ v: 1, kind: 'log', sessionId: box.sessionId, level: 'info', text: 'x' });
+      box.send!({ v: 1, kind: 'fail', sessionId: box.sessionId, message: 'The program sent too many messages (more than 5000 per second) and was stopped.', code: 'flood' });
+      expect(state()).toBe('error');
+      expect(useExecutionStore.getState().error?.kind).toBe('security');
+    });
+  });
 });

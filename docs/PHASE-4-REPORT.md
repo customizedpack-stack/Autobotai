@@ -359,3 +359,25 @@ Also added during the extra checks: 1 test in `executionManager.test.ts`. A work
 - The demo host's support for sandboxed `blob:` workers was not verifiable from here.
 - Only Chrome was tested.
 
+## Final fixes and verification (19 Nov 2026)
+
+| # | Issue | Fix | Files | New tests |
+| --- | --- | --- | --- | --- |
+| 1 | Repeated `stop()` calls during a pause were appended to the queue past its limit | `stop()` during a pause is handled at once and never queued. The first goes through the existing API and C2 (validated, tracked); repeated stops in the same pause are merged. The interrupted motion and held motion requests are settled as stopped or superseded, so Resume cannot restart old movement. The queue never exceeds its limit. The toolbar Stop still invalidates the session at once | `runtime/hostBridge.ts` | `hostBridge.test.ts`: 200 repeated stops (one C2 stop, no queue growth, all settle); stop with a full queue (responsive, held motion superseded, queue ≤ limit over 50 mixed requests). The earlier stop test was rewritten for the new rule (stop is not queued) and still checks that no old motion resumes |
+| 2 | No general limit on incoming worker messages | Per-session, per-second limits: over 1000, messages are rejected (calls get an error answer); over 5000, the session is ended as a security error. Stale sessions are ignored before counting. The command-rate and console-log limits are unchanged and separate | `runtime/executionManager.ts`, `runtime/executionLimits.ts` | `executionManager.test.ts`: rejection over the limit, termination of an abusive session with later messages ignored, a fresh window per session, Stop responsive during a continuous flood, normal Blockly and JavaScript runs with default limits, run-ending reports never filtered |
+| 3 | **Found by the new browser test:** a real worker flooding `console.log` in an endless loop **crashed the page**, because messages piled up in the browser's queues before the host could filter them | The same limits are enforced at the source, in the restricted worker runtime (programs cannot post messages directly): over the limit, output is dropped and robot calls fail inside the worker; over the flood threshold, the runtime reports a flood once. The host never rate-filters run-ending messages (`done`, `fail`) | `sandbox/workerRuntime.ts`, `runtime/messageProtocol.ts`, `runtime/executionManager.ts` | `workerRuntime.test.ts`: 2 (output drop with one notice and a flood report; calls over the limit rejected without a message). Browser: "A message flood ends the run as a security error; the UI stays responsive" |
+
+**Phase 4 final verification gate (executed 19 Nov 2026):**
+
+| Command | Result |
+| --- | --- |
+| `npm run typecheck` | Pass |
+| `npm run lint` | Pass, no findings |
+| `npm run test` | **207 / 207** in 20 files (10 new) |
+| `npm run build` | Pass |
+| `npm run test:e2e` | **99 / 99** steps in 5 suites (21 + 20 + 21 + 17 + 20) |
+
+The gate covers: Blockly, the JavaScript editor, the sandbox, the Robot Control API integration, C2 validation, program persistence, worker and iframe cleanup, and a responsive Stop.
+
+**Documentation:** `CODE-EXECUTION-SANDBOX.md` and `CODE-STUDIO.md` were updated. `C3-CODE-STUDIO.md` was added as a pointer, so the brief's name leads to the single Code Studio document.
+

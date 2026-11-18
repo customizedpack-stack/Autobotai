@@ -38,6 +38,9 @@ export class BridgeError extends Error {
 /** Read-only operations: answered at once, also while paused (they never move the robot). */
 const READ_ONLY_OPS = new Set<SandboxOp>(['getState', 'joints', 'joint.info']);
 
+/** Requests that would move the robot. A stop() during a pause supersedes the ones still held. */
+const MOTION_OPS = new Set<SandboxOp>(['drive.forward', 'drive.backward', 'drive.set', 'turn.left', 'turn.right', 'turn.set', 'joint.setTarget', 'joint.preview']);
+
 /** Operations that count as robot commands for the rate limit. */
 const COMMAND_OPS = new Set<SandboxOp>(['drive.forward', 'drive.backward', 'drive.set', 'turn.left', 'turn.right', 'turn.set', 'stop', 'reset', 'joint.setTarget', 'joint.preview', 'setSpeedPercent']);
 
@@ -96,8 +99,8 @@ export class HostBridge {
   private readonly commandTimes: number[] = [];
   private readonly unsubscribers: (() => void)[] = [];
   private limitedWarned = false;
-  /** The program called stop() while paused: Resume must not restart the interrupted motion. */
-  private stopRequestedWhilePaused = false;
+  /** C2 stop command issued during the current pause (later stops in the same pause are merged into it). */
+  private pausedStopCommandId: string | null = null;
   private readonly maxPausedRequests: number;
 
   constructor(options: HostBridgeOptions) {
@@ -137,19 +140,47 @@ export class HostBridge {
 
   /**
    * While paused nothing that moves the robot is executed. Read-only requests are
-   * answered at once; everything else waits, in order, until Resume. The queue is
-   * bounded; stop() is always accepted (it is never rejected because the queue is full).
+   * answered at once; stop() is handled at once (it never enters the queue); everything
+   * else waits, in order, until Resume, in a queue that never exceeds its limit.
    */
   private hold(op: SandboxOp, args: SandboxArgs): Promise<unknown> {
     if (READ_ONLY_OPS.has(op)) return this.execute(op, args);
-    if (op === 'stop') {
-      this.stopRequestedWhilePaused = true;
-    } else if (this.queue.length >= this.maxPausedRequests) {
+    if (op === 'stop') return this.stopWhilePaused();
+    if (this.queue.length >= this.maxPausedRequests) {
       return Promise.reject(
         new BridgeError(`Too many requests while the program is paused (limit ${this.maxPausedRequests}). Resume or stop the program first.`, 'validation'),
       );
     }
     return new Promise((resolve, reject) => this.queue.push({ op, args, resolve, reject }));
+  }
+
+  /**
+   * stop() during a pause. The robot is already stopped by the pause, so nothing moves.
+   * - The first stop of a pause goes through the existing API and C2 (validated and tracked).
+   *   Repeated stops in the same pause are merged into it: no new command, no queue growth.
+   * - The interrupted motion is settled as "stopped" and forgotten, so Resume cannot restart it.
+   * - Motion requests still held from before this stop are superseded by it (settled, removed).
+   *   Waits and other held requests keep their order.
+   */
+  private stopWhilePaused(): Promise<unknown> {
+    for (const motion of this.activeMotions()) motion.settle?.resolve({ commandId: motion.commandId, status: 'stopped' });
+    this.drive = null;
+    this.turn = null;
+    this.joints.clear();
+    const kept: Queued[] = [];
+    for (const item of this.queue) {
+      if (MOTION_OPS.has(item.op)) item.resolve({ status: 'superseded', detail: 'Superseded by stop() while paused.' });
+      else kept.push(item);
+    }
+    this.queue.splice(0, this.queue.length, ...kept);
+    if (this.pausedStopCommandId) {
+      return Promise.resolve({ commandId: this.pausedStopCommandId, status: 'completed', merged: true });
+    }
+    const result = robotControl.stop('code');
+    if (!result.ok) return Promise.reject(this.reportRejected(result, 'stop'));
+    this.reportAccepted(result, 'stop');
+    this.pausedStopCommandId = result.command.id;
+    return Promise.resolve({ commandId: result.command.id, status: 'completed' });
   }
 
   private execute(op: SandboxOp, args: SandboxArgs): Promise<unknown> {
@@ -380,14 +411,7 @@ export class HostBridge {
   resume(): void {
     if (!this.paused || this.disposed) return;
     this.paused = false;
-    if (this.stopRequestedWhilePaused) {
-      // The program asked to stop during the pause: the interrupted motion ends here instead of restarting.
-      this.stopRequestedWhilePaused = false;
-      for (const motion of this.activeMotions()) motion.settle?.resolve({ commandId: motion.commandId, status: 'stopped' });
-      this.drive = null;
-      this.turn = null;
-      this.joints.clear();
-    }
+    this.pausedStopCommandId = null;
     for (const kind of ['drive', 'turn'] as const) {
       const motion = this[kind];
       if (!motion) continue;

@@ -246,7 +246,7 @@ describe('host bridge (program requests → Robot Control API → C2)', () => {
       bridge.dispose();
     });
 
-    it('stop() while paused is always accepted (even when full) and Resume does not restart the interrupted motion', async () => {
+    it('stop() while paused is handled at once (never queued) and Resume does not restart the interrupted motion', async () => {
       const bridge = newBridge(30, 1);
       let drove: unknown = null;
       void bridge.handle('drive.forward', { speed: 1, durationMs: 2000 }).then((v) => (drove = v));
@@ -254,19 +254,63 @@ describe('host bridge (program requests → Robot Control API → C2)', () => {
       bridge.pause();
       void bridge.handle('setSpeedPercent', { value: 60 });
       expect(bridge.queuedRequests).toBe(1);
-      const stopped = bridge.handle('stop', {});
-      expect(bridge.queuedRequests).toBe(2);
-      const xAtPause = x();
-      bridge.resume();
-      await stopped;
+      const before = accepted().length;
+      const stopped = await bridge.handle('stop', {});
+      // Handled immediately through the API and C2 (tracked), and never added to the queue.
+      expect(stopped).toMatchObject({ status: 'completed' });
+      expect(accepted().length).toBe(before + 1);
+      expect(accepted().at(-1)).toMatchObject({ type: 'stop' });
+      expect(bridge.queuedRequests).toBe(1);
       await flush();
       expect(drove).toMatchObject({ status: 'stopped' });
+      const xAtPause = x();
+      bridge.resume();
+      await flush();
       run(0.5);
       expect(x()).toBeCloseTo(xAtPause, 6);
       expect(useRobotStateStore.getState().movement.intent).toEqual({ linear: 0, angular: 0 });
-      // Held requests ran in program order: speed setting, then stop.
-      expect(accepted().slice(-1)[0]!.type).toBe('stop');
+      // The held, non-motion request still ran on resume, in order.
       expect(useRobotStateStore.getState().speedPercent).toBe(60);
+      bridge.dispose();
+    });
+
+    // ── Final review: Stop must respect queue bounds ──
+    it('repeated stop() calls while paused are merged: one C2 stop, no queue growth, every promise settles', async () => {
+      const bridge = newBridge(30, 2);
+      bridge.pause();
+      const before = accepted().length;
+      const stops = Array.from({ length: 200 }, () => bridge.handle('stop', {}));
+      const results = (await Promise.all(stops)) as { commandId: string; merged?: boolean }[];
+      expect(results).toHaveLength(200);
+      expect(accepted().length).toBe(before + 1);
+      expect(new Set(results.map((r) => r.commandId)).size).toBe(1);
+      expect(results.slice(1).every((r) => r.merged)).toBe(true);
+      expect(bridge.queuedRequests).toBe(0);
+      bridge.dispose();
+    });
+
+    it('stop() while the queue is full stays responsive, supersedes held motion, and the queue never exceeds its limit', async () => {
+      const bridge = newBridge(30, 3);
+      bridge.pause();
+      const held = [bridge.handle('drive.set', { speed: 0.5 }), bridge.handle('turn.set', { rate: 0.5 }), bridge.handle('wait', { ms: 5 })];
+      expect(bridge.queuedRequests).toBe(3);
+      await expect(bridge.handle('drive.set', { speed: 1 })).rejects.toThrow(/Too many requests/);
+      await expect(bridge.handle('stop', {})).resolves.toMatchObject({ status: 'completed' });
+      // Held motion is superseded by the stop; the wait keeps its place.
+      const settled = await Promise.allSettled(held.slice(0, 2));
+      expect(settled.map((r) => r.status === 'fulfilled' && (r.value as { status: string }).status)).toEqual(['superseded', 'superseded']);
+      expect(bridge.queuedRequests).toBe(1);
+      let maxSeen = bridge.queuedRequests;
+      for (let i = 0; i < 50; i++) {
+        void bridge.handle(i % 3 === 0 ? 'stop' : 'drive.set', { ...(i % 3 === 0 ? {} : { speed: 0.1 }) }).catch(() => undefined);
+        maxSeen = Math.max(maxSeen, bridge.queuedRequests);
+      }
+      expect(maxSeen).toBeLessThanOrEqual(3);
+      bridge.resume();
+      await held[2];
+      run(0.5);
+      // Only motion requested AFTER the last stop (i = 49) runs; everything held before a stop was superseded.
+      expect(useRobotStateStore.getState().movement.intent).toEqual({ linear: 0.1, angular: 0 });
       bridge.dispose();
     });
 
