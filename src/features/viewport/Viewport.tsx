@@ -5,6 +5,7 @@ import { Mesh, Plane, Raycaster, Vector2, Vector3, type Object3D } from 'three';
 import { useShallow } from 'zustand/react/shallow';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useSelectionStore } from '../../stores/selectionStore';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useViewportStore } from '../../stores/viewportStore';
 import type { RobotJoint } from '../../types/joint';
 import { computeDropPlacement, type PickHit } from '../builder/placement';
@@ -32,11 +33,18 @@ function SceneTree() {
   const shadows = useViewportStore((s) => s.showShadows);
   const showJoints = useViewportStore((s) => s.showJoints);
   const dropTargetId = useViewportStore((s) => s.dropPreview?.parentId ?? null);
+  const rootPoses = useRobotStateStore((s) => s.rootPoses);
+  const jointPositions = useRobotStateStore((s) => s.jointPositions);
 
   const structure = useMemo(() => {
     const jointsByParent = new Map<string, RobotJoint[]>();
     for (const joint of joints) jointsByParent.set(joint.parentId, [...(jointsByParent.get(joint.parentId) ?? []), joint]);
-    return { byId: new Map(objects.map((o) => [o.id, o])), children: childrenMap(objects), jointsByParent };
+    return {
+      byId: new Map(objects.map((o) => [o.id, o])),
+      children: childrenMap(objects),
+      jointsByParent,
+      jointByChild: new Map(joints.map((j) => [j.childId, j])),
+    };
   }, [objects, joints]);
 
   const ctx: SceneTreeContext = {
@@ -45,6 +53,8 @@ function SceneTree() {
     selectedJointId,
     hoveredId,
     dropTargetId,
+    rootPoses,
+    jointPositions,
     shadows,
     showJoints,
     onSelect: select,
@@ -181,7 +191,9 @@ export function Viewport() {
     clear();
   }, [clear]);
 
-  const draggedComponent = () => useViewportStore.getState().draggingComponentId;
+  const control = useRobotStateStore((s) => s.mode === 'control');
+  // No drops in Control Mode: the design is locked while driving.
+  const draggedComponent = () => (useRobotStateStore.getState().mode === 'control' ? null : useViewportStore.getState().draggingComponentId);
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
     const componentId = draggedComponent();
@@ -256,7 +268,7 @@ export function Viewport() {
 
         <SceneTree />
         <DropGhost />
-        <TransformGizmo />
+        {!control && <TransformGizmo />}
 
         <OrbitControls makeDefault enableDamping dampingFactor={0.12} minDistance={0.15} maxDistance={60} />
         <CameraRig />

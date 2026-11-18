@@ -8,7 +8,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (booted) return;
     booted = true;
-    log.info('system', 'Auto Robots with AI started. Phase 2 Robot Builder.');
+    log.info('system', 'Auto Robots with AI started. Phase 3 Robot Movement & Control.');
     if (!isStorageAvailable()) {
       log.warning('storage', 'Browser storage is blocked. Drafts will be kept only until this tab closes.');
     }

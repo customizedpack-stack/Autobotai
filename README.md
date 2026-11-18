@@ -2,7 +2,24 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 2 — Modular Robot Builder** (on top of the Phase 1 foundation). You can build robots from parts in 3D, move them with gizmos, attach parts to each other, and define joints. Physics, coding and AI come in later phases (see `docs/`).
+**Current status: Phase 3 — Robot Movement & Control** (on top of Phases 1 and 2). You can build robots from parts in 3D, attach parts, define joints, add motors (actuators), and then **drive the robot** with the keyboard or on-screen buttons. The simulation is kinematic for now; physics arrives in Phase 5, coding in Phase 4 (see `docs/`).
+
+## Driving a robot
+
+1. Create an **Explorer Bot** (its motors and drive are set up for you).
+2. Click **Control** in the top bar, or press **M**.
+3. Click the 3D view, then use the keys below. Press **M** again to go back to Build Mode and edit.
+
+| Key | Control Mode | Build Mode |
+| --- | --- | --- |
+| W / ↑ | forward (hold) | Move tool |
+| S / ↓ | backward (hold) | — |
+| A / ← · D / → | turn left / right (hold) | — |
+| Space | stop | — |
+| R | reset to the design pose | Scale tool |
+| M | back to Build Mode | to Control Mode |
+
+The **Robot Control** panel on the right has hold-to-drive buttons, Stop, Reset, **Apply pose** (save the driven position into the design), a speed slider with presets, live telemetry, motor status and a joint preview. Keys never drive the robot while you are typing in a field.
 
 ---
 
@@ -43,7 +60,7 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control (needs `npm run build` first and Chrome installed) |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology
@@ -57,7 +74,8 @@ src/
   app/            App entry, router, pages (routes/) and providers
   components/     Reusable UI: common/, layout/, dashboard/, workspace/
   features/       Product modules (each is a clear boundary)
-    robot-model/        Robot model: hierarchy, transforms, joints, validation, schema v2, C1 connector
+    robot-model/        Robot model: hierarchy, transforms, joints, actuators, drive geometry, kinematics, schema v3, C1 connector
+    controls/           C2 Command Bus, movement engine, differential drive, keyboard, Robot Control API
     builder/            Drop placement rules for the Robot Builder
     viewport/           Three.js scene, camera views, gizmos, joint markers, drag-and-drop
     inspector/          Properties panel
@@ -65,16 +83,16 @@ src/
     robot-library/      Robot categories and templates
     projects/           Project creation and editor commands
     console/            Console, bus events and status views
-    controls/ code-studio/ simulation/ sensors/ robot-formats/
+    code-studio/ simulation/ sensors/ robot-formats/
                         Reserved boundaries for later phases (README inside each)
   core/bus/       Connector Bus: typed message system between modules
-  stores/         Zustand stores (project, scene + history, selection, workspace, viewport, console, settings)
+  stores/         Zustand stores (project, scene + history, robot runtime state, selection, workspace, viewport, console, settings)
   types/          Shared TypeScript model (robot project, scene objects, console, viewport)
   hooks/ utils/   Shortcuts and helpers
-docs/             Phase reports, architecture notes (C1 connector, schema v2) and test screenshots
-tests/e2e/        Browser journey test
+docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3) and test screenshots
+tests/e2e/        Browser test suites (one per phase)
 ```
 
 ## Where your work is saved
 
-Projects are saved as **drafts in your browser** (localStorage). Phase 1 drafts are upgraded to the Phase 2 format automatically when you open the app. They stay on that computer and browser only. Cloud accounts and saving arrive in Phase 8.
+Projects are saved as **drafts in your browser** (localStorage). Older drafts (Phase 1 and Phase 2) are upgraded to the current format (schema v3) automatically when you open the app. The driven position of a robot is never saved unless you click **Apply pose**. They stay on that computer and browser only. Cloud accounts and saving arrive in Phase 8.

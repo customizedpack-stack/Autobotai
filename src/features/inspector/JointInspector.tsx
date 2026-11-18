@@ -13,6 +13,7 @@ import { deleteSelected } from '../projects/workspaceActions';
 import { DEFAULT_LIMITS, JOINT_TYPES } from '../robot-model/joints';
 import { robotModel } from '../robot-model/robotModelConnector';
 import { JOINT_COLORS } from '../viewport/jointStyle';
+import { ActuatorSection } from './ActuatorSection';
 import { NumberField } from './NumberField';
 import { VectorRow } from './VectorRow';
 
@@ -185,6 +186,8 @@ export function JointInspector({ joint }: { joint: RobotJoint }) {
           <p className="mt-2 text-[10.5px] text-faint">Limits are stored now and enforced by the physics engine in Phase 5.</p>
         </Section>
       )}
+
+      <ActuatorSection joint={joint} />
 
       <div className="p-3">
         <Button size="sm" variant="danger" icon={<Trash2 size={13} />} onClick={deleteSelected} data-testid="delete-joint">

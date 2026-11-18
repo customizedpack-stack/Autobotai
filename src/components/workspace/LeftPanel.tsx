@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
 import { ComponentLibraryPanel } from '../../features/component-library/ComponentLibraryPanel';
 import { RobotLibraryPanel, TemplatesPanel } from '../../features/robot-library/RobotLibraryPanel';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useWorkspaceStore, type LeftPanelTab } from '../../stores/workspaceStore';
 import { IconButton } from '../common/Button';
@@ -21,6 +22,8 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
   const setTab = useWorkspaceStore((s) => s.setLeftTab);
   const objectCount = useSceneStore((s) => s.objects.length);
   const [query, setQuery] = useState('');
+  const control = useRobotStateStore((s) => s.mode === 'control');
+  const locked = control && tab !== 'objects';
 
   const rail = (
     <div className="flex w-9 shrink-0 flex-col items-center border-r border-line bg-panel py-1.5" data-testid="left-panel-collapsed">
@@ -82,7 +85,12 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
           )}
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {control && (
+        <div className="border-b border-line-soft bg-warn/10 px-3 py-1.5 text-[11px] text-warn" data-testid="edit-lock">
+          Editing is locked in Control Mode. Press M or choose Build to edit.
+        </div>
+      )}
+      <div className={locked ? 'pointer-events-none min-h-0 flex-1 overflow-y-auto opacity-40' : 'min-h-0 flex-1 overflow-y-auto'} aria-disabled={locked}>
         {tab === 'components' && <ComponentLibraryPanel query={query} />}
         {tab === 'library' && <RobotLibraryPanel query={query} />}
         {tab === 'templates' && <TemplatesPanel query={query} />}

@@ -1,3 +1,4 @@
+import type { RobotActuator, RobotController } from './actuator';
 import type { RobotJoint } from './joint';
 import type { SceneObject } from './scene';
 
@@ -7,8 +8,9 @@ export type RobotCategory = 'mobile' | 'arm' | 'humanoid' | 'drone' | 'industria
  * Robot configuration schema version.
  * v1 (Phase 1): flat objects, world transforms, no joints.
  * v2 (Phase 2): component hierarchy with local transforms, and joints.
+ * v3 (Phase 3): actuators bound to joints, and controllers (differential drive).
  */
-export const PROJECT_SCHEMA_VERSION = 2;
+export const PROJECT_SCHEMA_VERSION = 3;
 
 export interface RobotProject {
   id: string;
@@ -18,6 +20,8 @@ export interface RobotProject {
   schemaVersion: number;
   objects: SceneObject[];
   joints: RobotJoint[];
+  actuators: RobotActuator[];
+  controllers: RobotController[];
   createdAt: string;
   updatedAt: string;
   /** Last time the draft was explicitly saved in this browser. */

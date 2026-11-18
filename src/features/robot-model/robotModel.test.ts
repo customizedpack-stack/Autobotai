@@ -26,6 +26,8 @@ function sample(): Model {
   return {
     objects: [part('chassis', [1, 0, 0]), part('wheel', [0, 0, 0.2], 'chassis'), part('hub', [0.05, 0, 0], 'wheel'), part('arm', [0, 1, 0])],
     joints: [],
+    actuators: [],
+    controllers: [],
   };
 }
 

@@ -4,6 +4,8 @@ Status: approved plan, implemented 18 Nov 2026.
 
 > **Updated in Phase 2:** routing moved to React Router's data router (needed for `useBlocker`); demo builds use `createMemoryRouter`. The scene model is now schema v2 with a component hierarchy, local transforms and joints (see `SCHEMA-V2.md`). Structural edits go through the C1 Robot Model Connector (see `C1-ROBOT-MODEL-CONNECTOR.md`). `SceneObjectMesh` was replaced by `SceneObjectNode` (nested rendering).
 
+> **Updated in Phase 3:** schema v3 adds actuators and controllers (see `SCHEMA-V3.md`). The C2 Command Bus is active (see `C2-COMMAND-BUS.md`). A new `robotStateStore` holds runtime state (mode, driven pose, joint preview, telemetry) that is never saved or put into undo history. The movement engine runs at a fixed 60 Hz step outside React. `SceneObjectNode` renders the driven pose and joint motion on top of the design pose.
+
 ## How Phase 1 maps to the master build plan
 
 | Master plan | Covered in Phase 1 |

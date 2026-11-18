@@ -125,3 +125,26 @@ export function decompose(m: Mat4): Transform {
   void r31;
   return { position: [m[12]!, m[13]!, m[14]!], rotation: [x, y, z], scale: [sx, sy, sz] };
 }
+
+/** Rotation of `angle` radians about a unit `axis` (Rodrigues). */
+export function axisAngle(axis: Vec3, angle: number): Mat4 {
+  const [x, y, z] = axis;
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const t = 1 - c;
+  return [
+    t * x * x + c, t * x * y + s * z, t * x * z - s * y, 0,
+    t * x * y - s * z, t * y * y + c, t * y * z + s * x, 0,
+    t * x * z + s * y, t * y * z - s * x, t * z * z + c, 0,
+    0, 0, 0, 1,
+  ];
+}
+
+/** Rotate (and scale) a direction by the matrix, ignoring translation. */
+export function transformDirection(m: Mat4, d: Vec3): Vec3 {
+  return [
+    m[0]! * d[0] + m[4]! * d[1] + m[8]! * d[2],
+    m[1]! * d[0] + m[5]! * d[1] + m[9]! * d[2],
+    m[2]! * d[0] + m[6]! * d[1] + m[10]! * d[2],
+  ];
+}

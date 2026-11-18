@@ -1,4 +1,5 @@
 import { useProjectStore } from '../../stores/projectStore';
+import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { log } from '../../utils/logger';
@@ -20,7 +21,13 @@ export function saveCurrentProject(): boolean {
   if (!scene.projectId) return false;
   const saved = useProjectStore
     .getState()
-    .saveProject(scene.projectId, { name: scene.projectName, objects: scene.objects, joints: scene.joints });
+    .saveProject(scene.projectId, {
+      name: scene.projectName,
+      objects: scene.objects,
+      joints: scene.joints,
+      actuators: scene.actuators,
+      controllers: scene.controllers,
+    });
   if (!saved) {
     log.error('storage', 'Save failed: project not found in local drafts.');
     return false;
@@ -28,7 +35,7 @@ export function saveCurrentProject(): boolean {
   scene.markSaved();
   log.success(
     'storage',
-    `Saved "${saved.name}" as a local draft in this browser (${saved.objects.length} components, ${saved.joints.length} joints).`,
+    `Saved "${saved.name}" as a local draft in this browser (${saved.objects.length} components, ${saved.joints.length} joints, ${saved.actuators.length} actuators).`,
   );
   return true;
 }
@@ -53,8 +60,15 @@ function pruneSelection(): void {
   if (selectedJointId && !joints.some((j) => j.id === selectedJointId)) clear();
 }
 
+function editingLocked(): boolean {
+  if (useRobotStateStore.getState().mode !== 'control') return false;
+  log.warning('scene', 'Editing is locked in Control Mode. Switch to Build Mode to change the robot.');
+  return true;
+}
+
 /** Add a catalog component at the scene origin, resting on the ground. */
 export function addComponent(componentId: string): void {
+  if (editingLocked()) return;
   const component = findComponent(componentId);
   if (!component) {
     log.error('library', `Unknown component "${componentId}".`);
@@ -68,6 +82,7 @@ export function addComponent(componentId: string): void {
 
 /** Place a dragged catalog component where it was dropped; attach it to the component it was dropped on. */
 export function placeComponent(componentId: string, hit: PickHit): void {
+  if (editingLocked()) return;
   const component = findComponent(componentId);
   if (!component) {
     log.error('library', `Unknown component "${componentId}".`);
@@ -104,6 +119,7 @@ export function insertTemplate(templateId: string): void {
 
 /** Delete the selected joint, or the selected component (its children move up to its parent). */
 export function deleteSelected(): void {
+  if (editingLocked()) return;
   const { selectedId, selectedJointId, clear } = useSelectionStore.getState();
   if (selectedJointId) {
     if (robotModel.deleteJoint(selectedJointId).ok) clear();
@@ -125,6 +141,7 @@ export function deleteSelected(): void {
 }
 
 export function duplicateSelected(): void {
+  if (editingLocked()) return;
   const { selectedId, select } = useSelectionStore.getState();
   if (!selectedId) return;
   const copy = useSceneStore.getState().duplicateObject(selectedId);

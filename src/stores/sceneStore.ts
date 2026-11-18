@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { bus } from '../core/bus/connectorBus';
 import { materializeObject } from '../features/projects/materialize';
+import type { RobotActuator, RobotController } from '../types/actuator';
 import type { RobotJoint } from '../types/joint';
 import type { RobotProject } from '../types/project';
 import type { SceneObject, SceneObjectDraft, Transform } from '../types/scene';
@@ -22,13 +23,19 @@ interface Snapshot {
   name: string;
   objects: SceneObject[];
   joints: RobotJoint[];
+  actuators: RobotActuator[];
+  controllers: RobotController[];
 }
+
+type ModelFields = Pick<SceneState, 'projectName' | 'objects' | 'joints' | 'actuators' | 'controllers'>;
 
 interface SceneState {
   projectId: string | null;
   projectName: string;
   objects: SceneObject[];
   joints: RobotJoint[];
+  actuators: RobotActuator[];
+  controllers: RobotController[];
   past: Snapshot[];
   future: Snapshot[];
   dirty: boolean;
@@ -40,7 +47,10 @@ interface SceneState {
   closeProject: () => void;
   setProjectName: (name: string) => void;
   /** Apply a validated model change as one undo step. Used by the C1 connector. */
-  applyModel: (label: string, next: { objects?: SceneObject[]; joints?: RobotJoint[] }) => void;
+  applyModel: (
+    label: string,
+    next: { objects?: SceneObject[]; joints?: RobotJoint[]; actuators?: RobotActuator[]; controllers?: RobotController[] },
+  ) => void;
   addObject: (draft: SceneObjectDraft) => SceneObject;
   addObjects: (drafts: SceneObjectDraft[], label: string) => SceneObject[];
   updateTransform: (id: string, transform: Partial<Transform>) => void;
@@ -56,8 +66,12 @@ interface SceneState {
   markSaved: () => void;
 }
 
-function snapshot(state: Pick<SceneState, 'projectName' | 'objects' | 'joints'>): Snapshot {
-  return { name: state.projectName, objects: state.objects, joints: state.joints };
+function snapshot(state: ModelFields): Snapshot {
+  return { name: state.projectName, objects: state.objects, joints: state.joints, actuators: state.actuators, controllers: state.controllers };
+}
+
+function restore(s: Snapshot): Omit<ModelFields, never> {
+  return { projectName: s.name, objects: s.objects, joints: s.joints, actuators: s.actuators, controllers: s.controllers };
 }
 
 const sameTransform = (a: Transform, b: Transform) =>
@@ -65,7 +79,7 @@ const sameTransform = (a: Transform, b: Transform) =>
 
 export const useSceneStore = create<SceneState>((set, get) => {
   /** Apply a change and record the previous state for undo. */
-  const commit = (label: string, next: Partial<Pick<SceneState, 'projectName' | 'objects' | 'joints'>>) => {
+  const commit = (label: string, next: Partial<ModelFields>) => {
     const state = get();
     set({
       ...next,
@@ -85,6 +99,8 @@ export const useSceneStore = create<SceneState>((set, get) => {
     projectName: '',
     objects: [],
     joints: [],
+    actuators: [],
+    controllers: [],
     past: [],
     future: [],
     dirty: false,
@@ -97,6 +113,8 @@ export const useSceneStore = create<SceneState>((set, get) => {
         projectName: project.name,
         objects: structuredClone(project.objects),
         joints: structuredClone(project.joints ?? []),
+        actuators: structuredClone(project.actuators ?? []),
+        controllers: structuredClone(project.controllers ?? []),
         past: [],
         future: [],
         dirty: false,
@@ -107,7 +125,19 @@ export const useSceneStore = create<SceneState>((set, get) => {
     },
 
     closeProject: () =>
-      set({ projectId: null, projectName: '', objects: [], joints: [], past: [], future: [], dirty: false, lastAction: null, transientBase: null }),
+      set({
+        projectId: null,
+        projectName: '',
+        objects: [],
+        joints: [],
+        actuators: [],
+        controllers: [],
+        past: [],
+        future: [],
+        dirty: false,
+        lastAction: null,
+        transientBase: null,
+      }),
 
     setProjectName: (name) => {
       const trimmed = name.trim();
@@ -196,9 +226,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
       if (!previous) return null;
       const label = state.lastAction;
       set({
-        projectName: previous.name,
-        objects: previous.objects,
-        joints: previous.joints,
+        ...restore(previous),
         past: state.past.slice(0, -1),
         future: [snapshot(state), ...state.future].slice(0, HISTORY_LIMIT),
         dirty: true,
@@ -213,9 +241,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
       const next = state.future[0];
       if (!next) return null;
       set({
-        projectName: next.name,
-        objects: next.objects,
-        joints: next.joints,
+        ...restore(next),
         past: [...state.past, snapshot(state)].slice(-HISTORY_LIMIT),
         future: state.future.slice(1),
         dirty: true,

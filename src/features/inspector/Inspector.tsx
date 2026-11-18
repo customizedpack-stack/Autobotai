@@ -19,6 +19,7 @@ import { indexObjects, worldPosition } from '../robot-model/transforms';
 import { validateRobotModel } from '../robot-model/validation';
 import { categoryLabel, findTemplate } from '../robot-library/templates';
 import { JOINT_COLORS } from '../viewport/jointStyle';
+import { ControllerSection } from './ControllerSection';
 import { JointDialog } from './JointDialog';
 import { JointInspector } from './JointInspector';
 import { VectorRow } from './VectorRow';
@@ -67,6 +68,20 @@ function NameField({ object }: { object: SceneObject }) {
       }}
       className="h-8 w-full rounded-md border border-line bg-app px-2 text-[13px] font-medium outline-none focus:border-accent"
     />
+  );
+}
+
+/** For motor parts: which actuator uses this part. */
+function ActuatorUsage({ objectId }: { objectId: string }) {
+  const actuator = useSceneStore((s) => s.actuators.find((a) => a.componentId === objectId));
+  const joint = useSceneStore((s) => s.joints.find((j) => j.id === actuator?.jointId));
+  if (!actuator) return null;
+  return (
+    <Row label="Drives">
+      <span data-testid="actuator-usage">
+        {actuator.name} → {joint?.name ?? 'joint'}
+      </span>
+    </Row>
   );
 }
 
@@ -206,6 +221,7 @@ function ObjectInspector({ object }: { object: SceneObject }) {
         </Row>
         <Row label="Geometry">{describeGeometry(object.geometry)}</Row>
         <Row label="Component">{component?.name ?? 'Template part'}</Row>
+        <ActuatorUsage objectId={object.id} />
         <Row label="Color">
           <span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
             <span className="h-3 w-3 rounded-sm border border-line" style={{ background: object.color }} />
@@ -238,7 +254,9 @@ function ProjectSummary() {
   const objects = useSceneStore((s) => s.objects);
   const joints = useSceneStore((s) => s.joints);
   const objectCount = objects.length;
-  const issues = useMemo(() => validateRobotModel(objects, joints), [objects, joints]);
+  const actuators = useSceneStore((s) => s.actuators);
+  const controllers = useSceneStore((s) => s.controllers);
+  const issues = useMemo(() => validateRobotModel(objects, joints, actuators, controllers), [objects, joints, actuators, controllers]);
   const dirty = useSceneStore((s) => s.dirty);
   const project = useProjectStore((s) => (projectId ? s.projects[projectId] : undefined));
   if (!project) return null;
@@ -251,6 +269,7 @@ function ProjectSummary() {
           <Row label="Template">{findTemplate(project.templateId)?.name ?? project.templateId}</Row>
           <Row label="Components">{objectCount}</Row>
           <Row label="Joints">{joints.length}</Row>
+          <Row label="Actuators">{actuators.length}</Row>
           <Row label="Model check">
             <span data-testid="model-check" className={issues.some((i) => i.severity === 'error') ? 'text-err' : 'text-ok'}>
               {issues.length === 0 ? 'Valid' : `${issues.length} issue(s)`}
@@ -261,6 +280,7 @@ function ProjectSummary() {
           <Row label="Last saved">{dirty ? 'Unsaved changes' : formatRelativeTime(project.savedAt)}</Row>
         </div>
       </Section>
+      <ControllerSection />
       <div className="flex flex-col items-center px-6 py-8 text-center">
         <MousePointerClick size={18} className="text-faint" />
         <p className="mt-2 text-xs text-muted">Select a part or a joint marker in the viewport or the Objects tree to inspect and edit it.</p>

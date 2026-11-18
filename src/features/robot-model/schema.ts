@@ -1,5 +1,7 @@
 import { PROJECT_SCHEMA_VERSION, type RobotCategory, type RobotProject } from '../../types/project';
+import type { RobotActuator, RobotController } from '../../types/actuator';
 import type { RobotJoint } from '../../types/joint';
+import { suggestDifferentialDrive } from './drive';
 import type { SceneObject } from '../../types/scene';
 import { validateRobotModel } from './validation';
 
@@ -10,8 +12,14 @@ import { validateRobotModel } from './validation';
  *               null, no joints.
  * v2 (Phase 2): component tree via `parentId`, LOCAL transforms, `joints[]`.
  *
+ * v3 (Phase 3): `actuators[]` (motors bound to joints) and `controllers[]`
+ *               (differential drive).
+ *
  * Because every v1 object is a root, its world transform is also its local
  * transform, so v1 -> v2 keeps every transform unchanged and adds `joints: []`.
+ * v2 -> v3 keeps components, transforms, hierarchy and joints unchanged and
+ * adds `actuators: []` and `controllers: []`; Explorer Bot projects also get
+ * their two DC motors and a differential-drive controller.
  * Migration never drops data: unknown fields are kept, missing fields get
  * safe defaults, and anything suspicious is reported as a warning.
  */
@@ -72,6 +80,27 @@ function migrateV1toV2(raw: Loose, warnings: string[]): Loose {
   return { ...raw, objects: normalized, joints: [], schemaVersion: 2 };
 }
 
+/** Drive setup for a model that has two wheel joints and motors; empty when none can be detected. */
+export function autoConfigureDrive(
+  objects: readonly import('../../types/scene').SceneObject[],
+  joints: readonly RobotJoint[],
+): { actuators: RobotActuator[]; controllers: RobotController[] } {
+  const suggestion = suggestDifferentialDrive(objects, joints, []);
+  return suggestion.ok ? { actuators: suggestion.actuators, controllers: [suggestion.controller] } : { actuators: [], controllers: [] };
+}
+
+/** v2 -> v3. Pure; returns a new object. */
+function migrateV2toV3(raw: Loose, warnings: string[]): Loose {
+  const objects = (Array.isArray(raw.objects) ? raw.objects : []).filter(isObject).map((o, i) => normalizeObject(o, i, warnings));
+  const joints = (Array.isArray(raw.joints) ? raw.joints : []).filter(isObject) as unknown as RobotJoint[];
+  let drive = { actuators: [] as RobotActuator[], controllers: [] as RobotController[] };
+  if (raw.templateId === 'explorer-bot') {
+    drive = autoConfigureDrive(objects, joints);
+    if (drive.controllers.length === 0) warnings.push('Explorer Bot drive could not be configured automatically; use "Set up differential drive".');
+  }
+  return { ...raw, actuators: drive.actuators, controllers: drive.controllers, schemaVersion: 3 };
+}
+
 /** Migrate any stored project to the current schema. Throws only if `raw` is not an object. */
 export function migrateProject(raw: unknown): MigrationResult {
   if (!isObject(raw)) throw new Error('Project data is not an object.');
@@ -83,9 +112,12 @@ export function migrateProject(raw: unknown): MigrationResult {
     warnings.push(`Project uses newer schema v${fromVersion}; loaded as-is.`);
   }
   if (fromVersion < 2) data = migrateV1toV2(data, warnings);
+  if (fromVersion < 3) data = migrateV2toV3(data, warnings);
 
   const objects = (Array.isArray(data.objects) ? data.objects : []).filter(isObject).map((o, i) => normalizeObject(o, i, warnings));
   const joints = (Array.isArray(data.joints) ? data.joints : []).filter(isObject) as unknown as RobotJoint[];
+  const actuators = (Array.isArray(data.actuators) ? data.actuators : []).filter(isObject) as unknown as RobotActuator[];
+  const controllers = (Array.isArray(data.controllers) ? data.controllers : []).filter(isObject) as unknown as RobotController[];
   const now = new Date().toISOString();
   const project: RobotProject = {
     ...(data as object),
@@ -96,11 +128,20 @@ export function migrateProject(raw: unknown): MigrationResult {
     schemaVersion: Math.max(fromVersion, PROJECT_SCHEMA_VERSION),
     objects,
     joints,
+    actuators,
+    controllers,
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : now,
     updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : now,
     savedAt: typeof data.savedAt === 'string' ? data.savedAt : null,
   } as RobotProject;
 
-  for (const issue of validateRobotModel(project.objects, project.joints)) warnings.push(issue.message);
+  // Invalid actuators are kept (never dropped) but disabled, so they cannot drive anything.
+  const issues = validateRobotModel(project.objects, project.joints, project.actuators, project.controllers);
+  const ids = new Set(project.objects.map((o) => o.id));
+  const jointIds = new Set(project.joints.map((j) => j.id));
+  project.actuators = project.actuators.map((a) =>
+    a.enabled && (!jointIds.has(a.jointId) || (a.componentId !== null && !ids.has(a.componentId))) ? { ...a, enabled: false } : a,
+  );
+  for (const issue of issues) warnings.push(issue.message);
   return { project, fromVersion, toVersion: project.schemaVersion, warnings };
 }
