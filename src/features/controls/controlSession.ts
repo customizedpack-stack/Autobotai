@@ -36,8 +36,8 @@ function notifySessionEnd(reason: SessionEndReason): void {
 
 const MODE_MESSAGES: Record<WorkspaceMode, string> = {
   build: 'Build Mode: editing unlocked. The robot is back in its design pose.',
-  control: 'Control Mode: keyboard and buttons now drive the robot. Editing is locked. Kinematic simulation (physics arrives in Phase 5).',
-  code: 'Code Studio: programs drive the robot. Editing is locked. Kinematic simulation (physics arrives in Phase 5).',
+  control: 'Control Mode: keyboard and buttons now drive the robot. Editing is locked. Choose the Kinematic or Physics engine in the Simulation panel.',
+  code: 'Code Studio: programs drive the robot. Editing is locked. Choose the Kinematic or Physics engine in the Simulation panel.',
 };
 
 export function setWorkspaceMode(mode: WorkspaceMode): void {

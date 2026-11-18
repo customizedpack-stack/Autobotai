@@ -17,7 +17,8 @@ import { computeWheelSpeeds, integratePose, limitWheelSpeeds, twistFromIntent, t
  * robotStateStore. Child components follow through the normal hierarchy.
  * Only one loop can run at a time.
  *
- * Kinematic Simulation — Physics Engine Integration Coming in Phase 5.
+ * Kinematic engine. With the Physics engine selected, the physics controller is
+ * registered as the external controller and this loop does not step the robot.
  */
 
 export const STEP_SECONDS = 1 / 60;
@@ -59,6 +60,33 @@ let geometryCache: { key: unknown[]; result: ReturnType<typeof measureDriveGeome
 
 function publishStatus(commandId: string, type: CommandType, status: CommandStatus, detail?: string): void {
   bus.publish('command.status', { commandId, type, status, ...(detail ? { detail } : {}) });
+}
+
+/** Shared by the physics controller, so both engines report command progress the same way. */
+export const publishCommandStatus = publishStatus;
+
+/**
+ * Phase 5: an alternative movement controller (the physics simulation). While one is
+ * registered, accepted C2 commands go to it and the kinematic loop never runs, so
+ * the two engines can never move the robot at the same time.
+ */
+export interface ExternalMovementController {
+  readonly name: 'physics';
+  execute: (command: RobotCommand) => void;
+}
+
+let external: ExternalMovementController | null = null;
+
+/** Register (or with null, remove) the active alternative controller. Stops kinematic motion first. */
+export function setExternalController(controller: ExternalMovementController | null): void {
+  stopEverything('stopped');
+  simTime = 0;
+  external = controller;
+}
+
+/** Which engine moves the robot right now. */
+export function activeMovementController(): 'kinematic' | 'physics' {
+  return external ? external.name : 'kinematic';
 }
 
 function driveGeometry(): { geometry: DriveGeometry; rootId: string; leftActuatorMax: number; rightActuatorMax: number; maxLinearSpeed: number; maxAngularSpeed: number; leftActuatorId?: string; rightActuatorId?: string } | { error: string } {
@@ -127,6 +155,8 @@ function stopLoop(): void {
 
 /** Advance the simulation by dt seconds. Called by the loop; tests may call it directly. */
 export function step(dt: number): void {
+  // The kinematic engine never steps while another controller is in charge.
+  if (external) return;
   const robot = useRobotStateStore.getState();
   if (!canDrive(robot.mode)) return;
   simTime += dt;
@@ -216,6 +246,10 @@ function stopEverything(status: CommandStatus): void {
 
 /** Execute an already validated command. */
 export function execute(command: RobotCommand): void {
+  if (external) {
+    external.execute(command);
+    return;
+  }
   const robot = useRobotStateStore.getState();
   const intent = { ...robot.movement.intent };
   const payload = command.payload as Record<string, unknown>;
