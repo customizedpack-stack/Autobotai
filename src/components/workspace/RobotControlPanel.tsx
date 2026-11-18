@@ -73,7 +73,13 @@ const PRESETS = [
 
 const STATUS_TONE = { idle: 'neutral', moving: 'ok', stopped: 'warn', limited: 'warn' } as const;
 
-export function RobotControlPanel() {
+/**
+ * variant 'control': the full panel (Control Mode).
+ * variant 'code': Code Studio — programs drive the robot, so the manual drive pad,
+ * keyboard hint and joint preview are hidden; status, speed, telemetry and motors stay.
+ */
+export function RobotControlPanel({ variant = 'control' }: { variant?: 'control' | 'code' }) {
+  const code = variant === 'code';
   const projectName = useSceneStore((s) => s.projectName);
   const objects = useSceneStore((s) => s.objects);
   const joints = useSceneStore((s) => s.joints);
@@ -102,7 +108,7 @@ export function RobotControlPanel() {
   const right: Hold = { start: () => robotControl.turn.set(-1, 'panel'), end: () => robotControl.turn.set(0, 'panel') };
 
   return (
-    <div data-testid="robot-control-panel">
+    <div data-testid="robot-control-panel" data-variant={variant}>
       <Section title="Robot">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-[13px] font-semibold" data-testid="control-robot-name">
@@ -131,6 +137,12 @@ export function RobotControlPanel() {
               ))}
             </ul>
           )}
+          {code ? (
+            <p className="text-[11px] text-muted" data-testid="code-drive-note">
+              {readiness.length === 0 ? 'Drive ready. ' : ''}Your program drives the robot. Use Stop and Reset in the Code Studio toolbar.
+            </p>
+          ) : (
+          <>
           <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Drive controls">
             <span />
             <HoldButton label="Forward" testId="btn-forward" hold={forward}>
@@ -176,6 +188,8 @@ export function RobotControlPanel() {
             </Button>
           </div>
           <p className="mt-2 text-[10.5px] text-faint">Keys: W/↑ forward · S/↓ back · A/← left · D/→ right · Space stop · R reset</p>
+          </>
+          )}
         </Section>
       )}
 
@@ -276,9 +290,11 @@ export function RobotControlPanel() {
         )}
       </Section>
 
-      <Section title="Joint preview">
+      {!code && (
+        <Section title="Joint preview">
         <JointPreview />
       </Section>
+      )}
     </div>
   );
 }

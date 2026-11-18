@@ -4,6 +4,7 @@ import { CAMERA_VIEWS } from '../features/viewport/cameraPresets';
 import { useRobotStateStore } from '../stores/robotStateStore';
 import { deleteSelected, duplicateSelected, redo, saveCurrentProject, undo } from '../features/projects/workspaceActions';
 import { useSelectionStore } from '../stores/selectionStore';
+import { saveActiveProgram } from '../features/code-studio/programActions';
 import { useViewportStore } from '../stores/viewportStore';
 
 function isTyping(target: EventTarget | null): boolean {
@@ -25,13 +26,18 @@ export function useWorkspaceShortcuts(enabled: boolean): void {
       const key = event.key.toLowerCase();
 
       // Save works everywhere, even inside inputs.
+      const mode = useRobotStateStore.getState().mode;
       if (mod && key === 's') {
         event.preventDefault();
-        saveCurrentProject();
+        // In Code Studio the design is locked, so Ctrl+S saves the open program.
+        if (mode === 'code') saveActiveProgram();
+        else saveCurrentProject();
         return;
       }
       if (isTyping(event.target) || document.querySelector('[role="dialog"]')) return;
-      const control = useRobotStateStore.getState().mode === 'control';
+      // Keys pressed inside the Blockly or code editor belong to the editor.
+      if (event.target instanceof Element && event.target.closest('[data-code-editor]')) return;
+      const control = mode !== 'build';
 
       if (!mod && !event.altKey && key === 'm') {
         toggleWorkspaceMode();

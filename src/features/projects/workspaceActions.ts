@@ -61,8 +61,9 @@ function pruneSelection(): void {
 }
 
 function editingLocked(): boolean {
-  if (useRobotStateStore.getState().mode !== 'control') return false;
-  log.warning('scene', 'Editing is locked in Control Mode. Switch to Build Mode to change the robot.');
+  const { mode } = useRobotStateStore.getState();
+  if (mode === 'build') return false;
+  log.warning('scene', `Editing is locked in ${mode === 'code' ? 'Code Studio' : 'Control Mode'}. Switch to Build Mode to change the robot.`);
   return true;
 }
 

@@ -4,6 +4,8 @@ Status: approved plan, implemented 18 Nov 2026.
 
 > **Updated in Phase 2:** routing moved to React Router's data router (needed for `useBlocker`); demo builds use `createMemoryRouter`. The scene model is now schema v2 with a component hierarchy, local transforms and joints (see `SCHEMA-V2.md`). Structural edits go through the C1 Robot Model Connector (see `C1-ROBOT-MODEL-CONNECTOR.md`). `SceneObjectMesh` was replaced by `SceneObjectNode` (nested rendering).
 
+> **Updated in Phase 4:** a third workspace mode, `code` (Code Studio), with lazy-loaded Blockly and CodeMirror editors. User programs run in a sandboxed worker and reach the robot only through the Robot Control API and C2 (see `CODE-STUDIO.md` and `CODE-EXECUTION-SANDBOX.md`). Programs are stored in their own browser store, `arai.programs.v1`; project schema v3 is unchanged.
+
 > **Updated in Phase 3:** schema v3 adds actuators and controllers (see `SCHEMA-V3.md`). The C2 Command Bus is active (see `C2-COMMAND-BUS.md`). A new `robotStateStore` holds runtime state (mode, driven pose, joint preview, telemetry) that is never saved or put into undo history. The movement engine runs at a fixed 60 Hz step outside React. `SceneObjectNode` renders the driven pose and joint motion on top of the design pose.
 
 ## How Phase 1 maps to the master build plan

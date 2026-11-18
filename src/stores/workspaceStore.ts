@@ -3,7 +3,8 @@ import { persist } from 'zustand/middleware';
 import { safeStorage } from '../utils/storage';
 
 export type LeftPanelTab = 'components' | 'library' | 'templates' | 'objects';
-export type BottomPanelTab = 'console' | 'events' | 'status';
+/** 'program' is the Code Studio execution console (shown in Code Studio only). */
+export type BottomPanelTab = 'console' | 'events' | 'status' | 'program';
 export type PanelId = 'left' | 'right' | 'bottom';
 
 interface WorkspaceState {
