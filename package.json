@@ -1,7 +1,7 @@
 {
   "name": "auto-robots-ai",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
@@ -26,6 +26,7 @@
     "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
+    "@dimforge/rapier3d-compat": "^0.21.0",
     "@lezer/highlight": "^1.2.5",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
