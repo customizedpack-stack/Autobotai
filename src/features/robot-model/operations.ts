@@ -1,6 +1,7 @@
 import type { ActuatorInput, ActuatorPatch, ControllerPatch, RobotActuator, RobotController } from '../../types/actuator';
 import type { JointInput, JointPatch, RobotJoint } from '../../types/joint';
 import type { SceneObject } from '../../types/scene';
+import type { RobotSensor } from '../../types/sensor';
 import { actuatorTypeInfo, buildActuator, validateActuator, validateController } from './actuators';
 import { reparentError } from './hierarchy';
 import { buildJoint, normalizeAxis, validateJoint } from './joints';
@@ -17,20 +18,27 @@ export interface Model {
   joints: RobotJoint[];
   actuators: RobotActuator[];
   controllers: RobotController[];
+  /** Phase 6: sensor configurations. Optional so older callers keep working. */
+  sensors?: RobotSensor[];
 }
 
-/** Remove actuators and controllers that refer to components or joints that no longer exist. */
-function pruneDrives(model: Model): { model: Model; removedActuators: string[]; removedControllers: string[] } {
+/**
+ * Remove actuators, controllers and sensors that refer to components or joints that no longer
+ * exist (one undo step with the change that removed them).
+ */
+function pruneDrives(model: Model): { model: Model; removedActuators: string[]; removedControllers: string[]; removedSensors: string[] } {
   const objectIds = new Set(model.objects.map((o) => o.id));
   const jointIds = new Set(model.joints.map((j) => j.id));
   const actuators = model.actuators.filter((a) => jointIds.has(a.jointId) && (a.componentId === null || objectIds.has(a.componentId)));
   const controllers = model.controllers.filter(
     (c) => objectIds.has(c.rootComponentId) && jointIds.has(c.leftJointId) && jointIds.has(c.rightJointId),
   );
+  const sensors = model.sensors?.filter((s) => (s.type === 'encoder' ? jointIds.has(s.jointId) : objectIds.has(s.partId)));
   return {
-    model: { ...model, actuators, controllers },
+    model: { ...model, actuators, controllers, ...(sensors ? { sensors } : {}) },
     removedActuators: model.actuators.filter((a) => !actuators.includes(a)).map((a) => a.id),
     removedControllers: model.controllers.filter((c) => !controllers.includes(c)).map((c) => c.id),
+    removedSensors: (model.sensors ?? []).filter((s) => !sensors?.includes(s)).map((s) => s.id),
   };
 }
 
@@ -66,7 +74,7 @@ export function reparentComponent(
 export function removeComponent(
   model: Model,
   id: string,
-): OpResult<{ reparented: string[]; removedJoints: string[]; removedActuators: string[]; removedControllers: string[] }> {
+): OpResult<{ reparented: string[]; removedJoints: string[]; removedActuators: string[]; removedControllers: string[]; removedSensors: string[] }> {
   const target = model.objects.find((o) => o.id === id);
   if (!target) return { ok: false, errors: ['Component not found.'] };
   const index = indexObjects(model.objects);
@@ -86,6 +94,7 @@ export function removeComponent(
     removedJoints,
     removedActuators: pruned.removedActuators,
     removedControllers: pruned.removedControllers,
+    removedSensors: pruned.removedSensors,
     model: pruned.model,
   };
 }
@@ -141,7 +150,7 @@ export function updateJoint(model: Model, id: string, patch: JointPatch): OpResu
   return { ok: true, joint: next, changed, model: { ...model, joints: model.joints.map((j) => (j.id === id ? next : j)) } };
 }
 
-export function deleteJoint(model: Model, id: string): OpResult<{ joint: RobotJoint; removedActuators: string[]; removedControllers: string[] }> {
+export function deleteJoint(model: Model, id: string): OpResult<{ joint: RobotJoint; removedActuators: string[]; removedControllers: string[]; removedSensors: string[] }> {
   const joint = model.joints.find((j) => j.id === id);
   if (!joint) return { ok: false, errors: ['Joint not found.'] };
   const pruned = pruneDrives({ ...model, joints: model.joints.filter((j) => j.id !== id) });
