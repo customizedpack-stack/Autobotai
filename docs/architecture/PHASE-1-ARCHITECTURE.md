@@ -21,7 +21,7 @@ Status: approved plan, implemented 18 Nov 2026.
 7. **Coordinate convention:** Y-up, meters, rotations stored in radians (displayed in degrees by default). Robotics tools often use Z-up; the Robot Formats phase will convert at import/export time.
 8. **Inspector edits commit on Enter or blur**, so one edit equals one undo step. Arrow keys nudge (Shift = ×10). No-op edits are ignored so history stays clean.
 9. **Code splitting:** the workspace (Three.js) loads only when opened. Dashboard bundle ≈ 97 KB gzip; workspace ≈ 277 KB gzip.
-10. **Demo builds** (`npm run build:demo`) use relative paths and hash routing so they work from any static host.
+10. **Demo builds** (`npm run build:demo`) use relative paths and in-memory routing so they work from any static host.
 11. **Axis labels are WebGL sprites**, not HTML overlays. HTML overlays caused a DOM `removeChild` error when the workspace closed; sprites avoid it.
 12. **Card thumbnails are SVG schematics**, not live 3D. Browsers allow only a few WebGL contexts, so 3D is kept to the one workspace viewport.
 
