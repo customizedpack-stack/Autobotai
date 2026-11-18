@@ -5,6 +5,7 @@ import type { ProgramRequirements } from '../utils/programValidation';
 import { setupBlockly } from './blocklySetup';
 import { beginDiagnostics, endDiagnostics, NO_JOINT, primeMissingJoints } from './robotBlocks';
 import { SUPPORTED_BLOCK_TYPES } from './toolbox';
+import { NO_SENSOR, primeMissingSensors, SENSOR_BLOCK_TYPES } from './sensorBlocks';
 
 /**
  * Blockly → JavaScript, with checks first.
@@ -50,6 +51,7 @@ function labelOf(block: Blockly.Block): string {
 /** Check the blocks that will run. */
 function checkStack(start: Blockly.Block, issues: BlockIssue[]): void {
   const jointIds = new Set(useSceneStore.getState().joints.map((j) => j.id));
+  const sensors = useSceneStore.getState().sensors;
   for (const block of start.getDescendants(false)) {
     if (!block.isEnabled()) continue;
     if (!SUPPORTED_BLOCK_TYPES.has(block.type) || !javascriptGenerator.forBlock[block.type]) {
@@ -66,6 +68,17 @@ function checkStack(start: Blockly.Block, issues: BlockIssue[]): void {
       const id = joint.getValue() as string;
       if (id === NO_JOINT) issues.push({ blockId: block.id, message: 'This robot has no movable joints for this block.', severity: 'error' });
       else if (!jointIds.has(id)) issues.push({ blockId: block.id, message: 'A block refers to a joint that no longer exists in this robot. Choose a joint again.', severity: 'error' });
+    }
+    // Phase 6: sensor blocks must point at an existing sensor of the right type.
+    const sensorField = block.getField('SENSOR');
+    if (sensorField) {
+      const id = sensorField.getValue() as string;
+      const wanted = SENSOR_BLOCK_TYPES[block.type];
+      const sensor = sensors.find((s) => s.id === id);
+      if (id === NO_SENSOR) issues.push({ blockId: block.id, message: 'This robot has no sensor of the kind this block needs. Add one in Build Mode (Inspector → Sensors).', severity: 'error' });
+      else if (!sensor) issues.push({ blockId: block.id, message: `A block refers to the sensor "${id}", which no longer exists in this robot. Choose a sensor again.`, severity: 'error' });
+      else if (wanted && wanted !== 'any' && sensor.type !== wanted) issues.push({ blockId: block.id, message: `The sensor "${id}" is not the kind this block needs.`, severity: 'error' });
+      else if (!sensor.enabled) issues.push({ blockId: block.id, message: `The sensor "${id}" is disabled; its readings will be marked invalid.`, severity: 'warning' });
     }
   }
 }
@@ -115,6 +128,7 @@ export function generateFromWorkspace(workspace: Blockly.Workspace): GeneratedPr
 export function loadWorkspace(workspace: Blockly.Workspace, serialized: string): { ok: boolean; missingJoints: string[]; error?: string } {
   setupBlockly();
   const missingJoints = primeMissingJoints(serialized);
+  primeMissingSensors(serialized);
   try {
     const state = JSON.parse(serialized || '{}') as Record<string, unknown>;
     Blockly.Events.disable();

@@ -33,7 +33,7 @@ describe('Blockly robot blocks', () => {
       const block = workspace.newBlock(type);
       expect(block.type).toBe(type);
     }
-    expect(TOOLBOX.contents.map((c) => c.name)).toEqual(['Program', 'Movement', 'Robot Joints', 'Timing', 'Logic', 'Math', 'Variables', 'Output']);
+    expect(TOOLBOX.contents.map((c) => c.name)).toEqual(['Program', 'Movement', 'Robot Joints', 'Sensors', 'Timing', 'Logic', 'Math', 'Variables', 'Output']);
   });
 
   it('fills joint dropdowns from the open robot (movable joints only)', () => {

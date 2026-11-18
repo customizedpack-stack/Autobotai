@@ -1,4 +1,5 @@
 import { COLORS } from './robotBlocks';
+import { SENSOR_COLOR } from './sensorBlocks';
 
 /**
  * The Blockly toolbox: the categories from the Phase 4 brief.
@@ -55,6 +56,30 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
+      name: 'Sensors',
+      colour: SENSOR_COLOR,
+      contents: [
+        block('sensor_distance_m'),
+        block('sensor_obstacle'),
+        block('sensor_obstacle_within', { METERS: num(0.3) }),
+        block('sensor_compare_distance', { METERS: num(0.5) }),
+        block('sensor_wait_until_distance', { METERS: num(0.3) }),
+        block('sensor_read_distance'),
+        block('sensor_encoder_value'),
+        block('sensor_encoder_value', undefined, { fields: { FIELD: 'revolutions' } }),
+        block('sensor_encoder_value', undefined, { fields: { FIELD: 'ticks' } }),
+        block('sensor_encoder_reset'),
+        block('sensor_read_encoder'),
+        block('sensor_imu_orientation'),
+        block('sensor_imu_angular_velocity'),
+        block('sensor_imu_acceleration'),
+        block('sensor_read_imu'),
+        block('sensor_wait_reading'),
+        block('sensor_is_valid'),
+      ],
+    },
+    {
+      kind: 'category',
       name: 'Timing',
       colour: COLORS.timing,
       contents: [block('robot_wait', { MS: num(1000) }), block('robot_wait_seconds', { SECONDS: num(1) }), block('robot_every', { MS: num(500) })],
@@ -101,4 +126,8 @@ export const SUPPORTED_BLOCK_TYPES = new Set<string>([
   'robot_wait_seconds', 'robot_every', 'logic_compare', 'logic_operation', 'logic_negate', 'logic_boolean', 'math_number',
   'math_arithmetic', 'robot_min_max', 'math_random_int', 'variables_get', 'variables_set', 'math_change', 'robot_print', 'robot_log_value',
   'robot_report', 'text',
+  // Phase 6: Sensors
+  'sensor_read_distance', 'sensor_distance_m', 'sensor_obstacle', 'sensor_obstacle_within', 'sensor_compare_distance',
+  'sensor_wait_until_distance', 'sensor_read_encoder', 'sensor_encoder_value', 'sensor_encoder_reset', 'sensor_read_imu',
+  'sensor_imu_orientation', 'sensor_imu_angular_velocity', 'sensor_imu_acceleration', 'sensor_wait_reading', 'sensor_is_valid',
 ]);

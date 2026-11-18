@@ -6,6 +6,8 @@ import { useSceneStore } from '../../../stores/sceneStore';
 import { log } from '../../../utils/logger';
 import type { ExecutionLimits } from './executionLimits';
 import { validateArgs, type SandboxArgs, type SandboxOp } from './messageProtocol';
+import { SandboxSensorBridge, type SensorOp, type SensorPush } from '../../sensors/api/sandboxSensorBridge';
+import { DEFAULT_LIMITS } from './executionLimits';
 
 /**
  * Host side of the restricted API bridge.
@@ -36,7 +38,10 @@ export class BridgeError extends Error {
 }
 
 /** Read-only operations: answered at once, also while paused (they never move the robot). */
-const READ_ONLY_OPS = new Set<SandboxOp>(['getState', 'joints', 'joint.info']);
+const READ_ONLY_OPS = new Set<SandboxOp>(['getState', 'joints', 'joint.info', 'sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry']);
+
+/** Phase 6: sensor operations, handled by the run's SandboxSensorBridge (C3). */
+const SENSOR_OPS = new Set<SandboxOp>(['sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry']);
 
 /** Requests that would move the robot. A stop() during a pause supersedes the ones still held. */
 const MOTION_OPS = new Set<SandboxOp>(['drive.forward', 'drive.backward', 'drive.set', 'turn.left', 'turn.right', 'turn.set', 'joint.setTarget', 'joint.preview']);
@@ -80,8 +85,11 @@ interface JointWaiter {
 
 export interface HostBridgeOptions {
   sessionId: string;
-  limits: Pick<ExecutionLimits, 'maxCommandsPerSecond' | 'maxWaitMs'> & Partial<Pick<ExecutionLimits, 'maxPausedRequests'>>;
+  limits: Pick<ExecutionLimits, 'maxCommandsPerSecond' | 'maxWaitMs'> &
+    Partial<Pick<ExecutionLimits, 'maxPausedRequests' | 'maxSensorReadsPerSecond' | 'maxSensorSubscriptions' | 'maxSensorHz'>>;
   now?: () => number;
+  /** Phase 6: sends a host → worker message (sensor readings for subscriptions). */
+  push?: (message: SensorPush) => void;
 }
 
 export class HostBridge {
@@ -102,12 +110,24 @@ export class HostBridge {
   /** C2 stop command issued during the current pause (later stops in the same pause are merged into it). */
   private pausedStopCommandId: string | null = null;
   private readonly maxPausedRequests: number;
+  /** Phase 6: this run's sensor access (reads and subscriptions). */
+  readonly sensors: SandboxSensorBridge;
 
   constructor(options: HostBridgeOptions) {
     this.sessionId = options.sessionId;
     this.limits = options.limits;
     this.now = options.now ?? (() => performance.now());
     this.maxPausedRequests = options.limits.maxPausedRequests ?? 50;
+    this.sensors = new SandboxSensorBridge({
+      sessionId: this.sessionId,
+      limits: {
+        maxSensorReadsPerSecond: options.limits.maxSensorReadsPerSecond ?? DEFAULT_LIMITS.maxSensorReadsPerSecond,
+        maxSensorSubscriptions: options.limits.maxSensorSubscriptions ?? DEFAULT_LIMITS.maxSensorSubscriptions,
+        maxSensorHz: options.limits.maxSensorHz ?? DEFAULT_LIMITS.maxSensorHz,
+      },
+      push: options.push ?? (() => undefined),
+      now: this.now,
+    });
     this.unsubscribers.push(
       bus.subscribe('command.status', ({ commandId, status }) => this.onStatus(commandId, status)),
       useRobotStateStore.subscribe((state, prev) => {
@@ -187,6 +207,7 @@ export class HostBridge {
     if (COMMAND_OPS.has(op) && !this.allowCommand()) {
       return Promise.reject(new BridgeError(`Too many robot commands: the limit is ${this.limits.maxCommandsPerSecond} per second. Add a wait between commands.`));
     }
+    if (SENSOR_OPS.has(op)) return this.sensors.handle(op as SensorOp, args);
     const n = (key: string) => args[key] as number | undefined;
     switch (op) {
       case 'drive.forward':
@@ -233,6 +254,8 @@ export class HostBridge {
         return Promise.resolve(robotControl.getState());
       case 'wait':
         return this.wait(n('ms')!);
+      default:
+        return Promise.reject(new BridgeError(`Unknown operation "${String(op)}".`, 'validation'));
     }
   }
 
@@ -404,6 +427,7 @@ export class HostBridge {
       pending.timer = null;
       pending.remainingMs = Math.max(0, pending.remainingMs - (now - pending.startedAt));
     }
+    this.sensors.pause();
     robotControl.stop('code');
   }
 
@@ -439,6 +463,7 @@ export class HostBridge {
     const held = this.queue.splice(0);
     for (const item of held) this.execute(item.op, item.args).then(item.resolve, item.reject);
     this.checkJointWaiters();
+    this.sensors.resume();
   }
 
   private activeMotions(): Motion[] {
@@ -458,5 +483,6 @@ export class HostBridge {
     this.turn = null;
     this.joints.clear();
     for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
+    this.sensors.dispose();
   }
 }

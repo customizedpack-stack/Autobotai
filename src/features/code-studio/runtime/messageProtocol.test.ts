@@ -34,11 +34,13 @@ describe('sandbox message protocol', () => {
     expect(Object.keys(SANDBOX_OPS)).toEqual([
       'drive.forward', 'drive.backward', 'drive.set', 'turn.left', 'turn.right', 'turn.set', 'stop', 'reset',
       'joint.setTarget', 'joint.preview', 'joint.wait', 'joint.info', 'joints', 'setSpeedPercent', 'getState', 'wait',
+      // Phase 6: read-only sensor operations (C3).
+      'sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry',
     ]);
   });
 
   it('rejects unknown message kinds', () => {
-    for (const kind of ['result', 'pause', 'eval', 'exec']) {
+    for (const kind of ['result', 'pause', 'sensor', 'eval', 'exec']) {
       expect(parseWorkerMessage({ v: 1, kind, sessionId: S }, S).ok, kind).toBe(false);
     }
   });

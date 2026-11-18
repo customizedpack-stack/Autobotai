@@ -25,6 +25,12 @@ export interface ExecutionLimits {
   maxMessagesPerSecond: number;
   /** Incoming worker messages per second at which the session is ended as abusive. */
   terminateAtMessagesPerSecond: number;
+  /** Phase 6: sensor reads (read, list, odometry) per second, counted apart from robot commands. */
+  maxSensorReadsPerSecond: number;
+  /** Phase 6: active sensor subscriptions per run. */
+  maxSensorSubscriptions: number;
+  /** Phase 6: most readings per second delivered to one subscription (newest wins). */
+  maxSensorHz: number;
 }
 
 export const DEFAULT_LIMITS: ExecutionLimits = {
@@ -39,6 +45,9 @@ export const DEFAULT_LIMITS: ExecutionLimits = {
   maxPausedRequests: 50,
   maxMessagesPerSecond: 1000,
   terminateAtMessagesPerSecond: 5000,
+  maxSensorReadsPerSecond: 200,
+  maxSensorSubscriptions: 8,
+  maxSensorHz: 20,
 };
 
 /** Human-readable summary, shown in the UI and the docs. */
