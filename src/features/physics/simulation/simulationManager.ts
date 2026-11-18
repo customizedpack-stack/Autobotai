@@ -6,6 +6,8 @@ import { setExternalController, shutdown as shutdownKinematic } from '../../cont
 import type { EnvironmentId } from '../engine/environments';
 import { FIXED_STEP, MAX_FRAME_SECONDS, MAX_TICKS_PER_FRAME } from '../physicsConfig';
 import type { DebugSnapshot, PhysicsController } from '../integration/physicsController';
+import { attachSource as attachSensors, detachSource as detachSensors, flush as flushSensors, tick as tickSensors } from '../../sensors/core/sensorManager';
+import { createPhysicsSensorSource } from '../../sensors/sources/physicsSource';
 import { EMPTY_INFO, useSimulationStore, type SimulationEngine, type SimulationRunState } from './simulationStore';
 
 /**
@@ -84,6 +86,8 @@ function advance(): void {
   while (accumulator >= FIXED_STEP && ticks < MAX_TICKS_PER_FRAME) {
     const t0 = performance.now();
     controller.tick(FIXED_STEP);
+    // Phase 6: sensors are sampled from this same tick (no second loop).
+    tickSensors(FIXED_STEP);
     stepTimeTotal += performance.now() - t0;
     stepCount += 1;
     accumulator -= FIXED_STEP;
@@ -92,6 +96,7 @@ function advance(): void {
   // Drop time the simulation cannot catch up on (a frame-time spike), instead of spiralling.
   if (accumulator > FIXED_STEP * MAX_TICKS_PER_FRAME) accumulator = 0;
   controller.publish();
+  flushSensors();
   updateInfo(false);
 }
 
@@ -147,6 +152,7 @@ export async function startSimulation(): Promise<boolean> {
     controller = next;
     setExternalController(next);
     setState({ state: 'running' });
+    attachSensors(createPhysicsSensorSource(next, () => store().settings.gravityEnabled));
     updateInfo(true);
     controller.publish();
     startLoop();
@@ -185,6 +191,7 @@ export function stopSimulation(reason = 'Physics simulation stopped. The robot i
   startToken += 1;
   const was = store().state;
   stopLoop();
+  detachSensors('The physics simulation stopped.');
   if (controller) {
     controller.stopAll('stopped');
     setExternalController(null);
@@ -254,8 +261,12 @@ export function setSimulationScheduler(next: Scheduler | null): void {
 export function stepSimulation(seconds: number): void {
   if (store().state !== 'running' || !controller) return;
   const ticks = Math.round(seconds / FIXED_STEP);
-  for (let i = 0; i < ticks; i++) controller.tick(FIXED_STEP);
+  for (let i = 0; i < ticks; i++) {
+    controller.tick(FIXED_STEP);
+    tickSensors(FIXED_STEP);
+  }
   controller.publish();
+  flushSensors(true);
   updateInfo(true);
 }
 
