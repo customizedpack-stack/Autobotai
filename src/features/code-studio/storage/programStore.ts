@@ -42,14 +42,34 @@ export function programsForProject(programs: Record<string, RobotProgram>, proje
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.name.localeCompare(b.name));
 }
 
-/** A name that is not used yet in this project ("Program 2", "Copy of X (2)" …). */
+/** Most attempts at a numbered name before falling back to a random suffix. */
+export const MAX_NAME_ATTEMPTS = 10_000;
+
+/** `base` shortened so that `suffix` still fits in PROGRAM_NAME_MAX characters. */
+function withSuffix(base: string, suffix: string): string {
+  return `${base.slice(0, Math.max(0, PROGRAM_NAME_MAX - suffix.length)).trimEnd()}${suffix}`;
+}
+
+/**
+ * A name that is not used yet in this project ("Program", "Program (2)", …).
+ * The numeric suffix always fits: the BASE is shortened, never the suffix, so every
+ * attempt produces a different name. Comparison ignores upper/lower case.
+ * After MAX_NAME_ATTEMPTS numbered names, a short random suffix is used.
+ */
 export function uniqueProgramName(programs: Record<string, RobotProgram>, projectId: string, base: string): string {
   const used = new Set(programsForProject(programs, projectId).map((p) => p.name.toLowerCase()));
-  if (!used.has(base.toLowerCase())) return base;
-  for (let n = 2; ; n += 1) {
-    const candidate = `${base} (${n})`.slice(0, PROGRAM_NAME_MAX);
+  const start = base.slice(0, PROGRAM_NAME_MAX).trimEnd() || 'Program';
+  if (!used.has(start.toLowerCase())) return start;
+  for (let n = 2; n <= MAX_NAME_ATTEMPTS; n += 1) {
+    const candidate = withSuffix(start, ` (${n})`);
     if (!used.has(candidate.toLowerCase())) return candidate;
   }
+  // Fallback: random suffixes (checked against existing names), then a time-based one. Always terminates.
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const candidate = withSuffix(start, ` (${createId('n').slice(-6)})`);
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return withSuffix(start, ` (${Date.now().toString(36)})`);
 }
 
 export const useProgramStore = create<ProgramState>()(

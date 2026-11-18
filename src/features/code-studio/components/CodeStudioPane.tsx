@@ -8,7 +8,7 @@ import { log } from '../../../utils/logger';
 import { isProgramDirty, useCodeStudioStore } from '../codeStudioStore';
 import { formatCode } from '../editor/codeEditorSetup';
 import { editors } from '../editorRegistry';
-import { createProgram, ensureActiveProgram, revertProgram, saveActiveProgram } from '../programActions';
+import { createProgram, ensureActiveProgram, revertProgram } from '../programActions';
 import { convertActiveToJavaScript, generateActiveBlockly, runActiveProgram } from '../runActions';
 import { clearExecutionStatus } from '../runtime/executionManager';
 import { useExecutionStore } from '../runtime/executionStore';
@@ -88,7 +88,7 @@ function GeneratedCode({ programId }: { programId: string }) {
     return () => {
       current = false;
     };
-  }, [draft, saved]);
+  }, [programId, draft, saved]);
   if (!generated) return <p className="p-3 text-xs text-muted">Generating code…</p>;
   const text = generated.ok ? generated.code : `// The blocks cannot be turned into code yet:\n${generated.issues.map((i) => `// - ${i.message}`).join('\n')}\n`;
   return <JavaScriptEditor initialDoc={text} readOnly testId="generated-code" />;
@@ -241,7 +241,7 @@ export default function CodeStudioPane() {
             <GeneratedCode programId={program.id} />
           )
         ) : (
-          <JavaScriptEditor key={`${program.id}:${editorKey}`} initialDoc={initial} onChange={onChange} onSave={saveActiveProgram} onRun={() => void runActiveProgram()} errorLine={errorLine} />
+          <JavaScriptEditor key={`${program.id}:${editorKey}`} initialDoc={initial} onChange={onChange} onRun={() => void runActiveProgram()} errorLine={errorLine} />
         )}
       </div>
       <ErrorBar program={program} />

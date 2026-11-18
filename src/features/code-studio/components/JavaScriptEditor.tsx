@@ -7,7 +7,6 @@ interface JavaScriptEditorProps {
   initialDoc: string;
   readOnly?: boolean;
   onChange?: (doc: string) => void;
-  onSave?: () => void;
   onRun?: () => void;
   /** Line to mark as the place of a runtime error (1-based). */
   errorLine?: number | null;
@@ -15,11 +14,11 @@ interface JavaScriptEditorProps {
 }
 
 /** CodeMirror 6 editor. Created once per mount; React never re-renders its content. */
-export function JavaScriptEditor({ initialDoc, readOnly = false, onChange, onSave, onRun, errorLine, testId = 'js-editor' }: JavaScriptEditorProps) {
+export function JavaScriptEditor({ initialDoc, readOnly = false, onChange, onRun, errorLine, testId = 'js-editor' }: JavaScriptEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const callbacks = useRef({ onChange, onSave, onRun });
-  callbacks.current = { onChange, onSave, onRun };
+  const callbacks = useRef({ onChange, onRun });
+  callbacks.current = { onChange, onRun };
 
   useEffect(() => {
     if (!host.current) return;
@@ -29,7 +28,6 @@ export function JavaScriptEditor({ initialDoc, readOnly = false, onChange, onSav
         doc: initialDoc,
         readOnly,
         onChange: (doc) => callbacks.current.onChange?.(doc),
-        onSave: () => callbacks.current.onSave?.(),
         onRun: () => callbacks.current.onRun?.(),
       }),
     });

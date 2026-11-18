@@ -82,6 +82,7 @@ Malformed messages are ignored and logged. After more than 20 in one run, the ru
 | Console message length | 500 characters | Truncated |
 | Sandbox start | 5 s | Run ended (sandbox error) |
 | Invalid messages | 20 per run | Run ended (security error) |
+| Requests held while paused | 50 | Rejected at once with a readable error; `stop()` is always accepted |
 
 ## Lifecycle and safety rules
 
@@ -95,6 +96,12 @@ Malformed messages are ignored and logged. After more than 20 in one run, the ru
 - **Late messages** from an ended session are dropped by session check and by port closure.
 
 ## Pause and resume (documented model)
+
+While paused, **nothing that moves the robot is executed**:
+- Read-only requests (`getState`, `joints`, `joint.info`) are answered at once.
+- Other requests wait in a bounded queue (50) and run in program order on resume. Requests beyond the limit are rejected at once.
+- A program's `stop()` is always accepted, and Resume then does not restart the interrupted motion.
+- Ending the run rejects every held request, so no promise is left pending.
 
 Pause is **cooperative**:
 1. The host stops the robot and holds new requests.

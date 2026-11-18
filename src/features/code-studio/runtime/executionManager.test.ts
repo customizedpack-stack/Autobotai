@@ -203,4 +203,33 @@ describe('execution manager', () => {
     expect(byName('Chassis').transform).toEqual(design);
     expect(events('command.accepted').at(-1)!.command).toMatchObject({ type: 'reset', source: 'code' });
   });
+
+  it('a worker crash ends the run, stops a moving robot, ignores later messages, and Stop still works', async () => {
+    let send: ((raw: unknown) => void) | null = null;
+    let crash: ((message: string) => void) | null = null;
+    let sessionId = '';
+    configureExecution({
+      sandbox: () => (options) => {
+        sessionId = options.sessionId;
+        send = options.onWorkerMessage;
+        crash = (m) => options.onWorkerError(m);
+        setTimeout(() => options.onWorkerMessage({ v: 1, kind: 'ready', sessionId }), 0);
+        return { send: () => undefined, destroy: () => undefined };
+      },
+    });
+    runJs('await robotControl.drive.set(1);');
+    await until(() => state() === 'running');
+    send!({ v: 1, kind: 'call', sessionId, id: 1, op: 'drive.set', args: { speed: 1 } });
+    await until(() => useRobotStateStore.getState().movement.intent.linear === 1);
+    crash!('Out of memory');
+    expect(state()).toBe('error');
+    expect(useExecutionStore.getState().error?.message).toBe('The program crashed: Out of memory');
+    expect(useRobotStateStore.getState().movement.intent.linear).toBe(0);
+    const accepted = events('command.accepted').length;
+    send!({ v: 1, kind: 'call', sessionId, id: 2, op: 'drive.set', args: { speed: 1 } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(events('command.accepted').length).toBe(accepted);
+    stopProgram();
+    expect(events('command.accepted').at(-1)!.command).toMatchObject({ type: 'stop', source: 'code' });
+  });
 });

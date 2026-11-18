@@ -35,6 +35,9 @@ export class BridgeError extends Error {
   }
 }
 
+/** Read-only operations: answered at once, also while paused (they never move the robot). */
+const READ_ONLY_OPS = new Set<SandboxOp>(['getState', 'joints', 'joint.info']);
+
 /** Operations that count as robot commands for the rate limit. */
 const COMMAND_OPS = new Set<SandboxOp>(['drive.forward', 'drive.backward', 'drive.set', 'turn.left', 'turn.right', 'turn.set', 'stop', 'reset', 'joint.setTarget', 'joint.preview', 'setSpeedPercent']);
 
@@ -74,7 +77,7 @@ interface JointWaiter {
 
 export interface HostBridgeOptions {
   sessionId: string;
-  limits: Pick<ExecutionLimits, 'maxCommandsPerSecond' | 'maxWaitMs'>;
+  limits: Pick<ExecutionLimits, 'maxCommandsPerSecond' | 'maxWaitMs'> & Partial<Pick<ExecutionLimits, 'maxPausedRequests'>>;
   now?: () => number;
 }
 
@@ -93,11 +96,15 @@ export class HostBridge {
   private readonly commandTimes: number[] = [];
   private readonly unsubscribers: (() => void)[] = [];
   private limitedWarned = false;
+  /** The program called stop() while paused: Resume must not restart the interrupted motion. */
+  private stopRequestedWhilePaused = false;
+  private readonly maxPausedRequests: number;
 
   constructor(options: HostBridgeOptions) {
     this.sessionId = options.sessionId;
     this.limits = options.limits;
     this.now = options.now ?? (() => performance.now());
+    this.maxPausedRequests = options.limits.maxPausedRequests ?? 50;
     this.unsubscribers.push(
       bus.subscribe('command.status', ({ commandId, status }) => this.onStatus(commandId, status)),
       useRobotStateStore.subscribe((state, prev) => {
@@ -114,15 +121,35 @@ export class HostBridge {
     return this.paused;
   }
 
+  /** Requests currently held because the program is paused. */
+  get queuedRequests(): number {
+    return this.queue.length;
+  }
+
   /** Handle one request from the program. */
   handle(op: SandboxOp, rawArgs: unknown): Promise<unknown> {
     if (this.disposed) return Promise.reject(new BridgeError('The program is no longer running.'));
     const parsed = validateArgs(op, rawArgs);
     if (!parsed.ok) return Promise.reject(new BridgeError(`${op}: ${parsed.reason}`, 'validation'));
-    if (this.paused) {
-      return new Promise((resolve, reject) => this.queue.push({ op, args: parsed.value, resolve, reject }));
-    }
+    if (this.paused) return this.hold(op, parsed.value);
     return this.execute(op, parsed.value);
+  }
+
+  /**
+   * While paused nothing that moves the robot is executed. Read-only requests are
+   * answered at once; everything else waits, in order, until Resume. The queue is
+   * bounded; stop() is always accepted (it is never rejected because the queue is full).
+   */
+  private hold(op: SandboxOp, args: SandboxArgs): Promise<unknown> {
+    if (READ_ONLY_OPS.has(op)) return this.execute(op, args);
+    if (op === 'stop') {
+      this.stopRequestedWhilePaused = true;
+    } else if (this.queue.length >= this.maxPausedRequests) {
+      return Promise.reject(
+        new BridgeError(`Too many requests while the program is paused (limit ${this.maxPausedRequests}). Resume or stop the program first.`, 'validation'),
+      );
+    }
+    return new Promise((resolve, reject) => this.queue.push({ op, args, resolve, reject }));
   }
 
   private execute(op: SandboxOp, args: SandboxArgs): Promise<unknown> {
@@ -353,6 +380,14 @@ export class HostBridge {
   resume(): void {
     if (!this.paused || this.disposed) return;
     this.paused = false;
+    if (this.stopRequestedWhilePaused) {
+      // The program asked to stop during the pause: the interrupted motion ends here instead of restarting.
+      this.stopRequestedWhilePaused = false;
+      for (const motion of this.activeMotions()) motion.settle?.resolve({ commandId: motion.commandId, status: 'stopped' });
+      this.drive = null;
+      this.turn = null;
+      this.joints.clear();
+    }
     for (const kind of ['drive', 'turn'] as const) {
       const motion = this[kind];
       if (!motion) continue;
@@ -392,7 +427,8 @@ export class HostBridge {
     this.disposed = true;
     for (const pending of this.waits) if (pending.timer) clearTimeout(pending.timer);
     this.waits.clear();
-    this.queue.length = 0;
+    // Held requests are rejected (not dropped), so no promise is left unresolved.
+    for (const item of this.queue.splice(0)) item.reject(new BridgeError('The program is no longer running.'));
     this.jointWaiters.clear();
     this.drive = null;
     this.turn = null;

@@ -1,7 +1,7 @@
 import { useSceneStore } from '../../stores/sceneStore';
 import { log } from '../../utils/logger';
 import { isProgramDirty, useCodeStudioStore } from './codeStudioStore';
-import { programsForProject, useProgramStore } from './storage/programStore';
+import { programsForProject, uniqueProgramName, useProgramStore } from './storage/programStore';
 import type { ProgramLanguage, RobotProgram } from './storage/programTypes';
 
 /**
@@ -131,9 +131,15 @@ export function renameProgram(programId: string, name: string): boolean {
 export function duplicateProgram(programId: string): RobotProgram | null {
   const pid = projectId();
   if (!pid) return null;
-  // Duplicate what the user sees, including unsaved edits.
-  saveProgram(programId);
-  const result = useProgramStore.getState().duplicateProgram(programId, pid);
+  const original = useProgramStore.getState().programs[programId];
+  if (!original || original.projectId !== pid) {
+    log.error('code', 'This program belongs to a different project or no longer exists.');
+    return null;
+  }
+  // The copy gets what the user sees (including unsaved edits); the original is NOT saved as a side effect.
+  const source = useCodeStudioStore.getState().drafts[programId] ?? original.source;
+  const name = uniqueProgramName(useProgramStore.getState().programs, pid, `Copy of ${original.name}`);
+  const result = useProgramStore.getState().createProgram({ projectId: pid, language: original.language, source, description: original.description, name });
   if (!result.ok) {
     log.error('code', result.error);
     return null;

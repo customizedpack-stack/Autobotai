@@ -300,8 +300,17 @@ await probe("postMessage", () => postMessage({ v: 1, kind: "done", sessionId: "x
 
   await step('Save the program, rename it, reload: the program is restored', async () => {
     await page.getByTestId('lang-javascript').click();
-    await setCode('// saved program\nawait robotControl.drive.forward({ speed: 0.5, durationMs: 300 });\n');
+    await setCode('// draft\n');
     assert((await page.getByTestId('program-dirty').count()) === 1, 'dirty indicator missing');
+    // Ctrl+S inside the code editor saves exactly once (regression: it used to be handled twice).
+    const savesBefore = await programLog().getByText(/^Saved program/).count();
+    await page.keyboard.press('Control+s');
+    await programLog().getByText(/^Saved program/).nth(savesBefore).waitFor();
+    await page.waitForTimeout(300);
+    assert((await programLog().getByText(/^Saved program/).count()) === savesBefore + 1, 'Ctrl+S saved more than once');
+    assert((await programLog().getByText(/has no unsaved changes/).count()) === 0, 'Ctrl+S was handled twice');
+    assert((await page.getByTestId('program-dirty').count()) === 0, 'still dirty after Ctrl+S');
+    await setCode('// saved program\nawait robotControl.drive.forward({ speed: 0.5, durationMs: 300 });\n');
     await page.getByTestId('save-program').click();
     assert((await page.getByTestId('program-dirty').count()) === 0, 'still dirty after save');
     await page.getByTestId('program-name').fill('Patrol Route');

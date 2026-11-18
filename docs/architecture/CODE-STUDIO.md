@@ -98,6 +98,7 @@ Loading:
   - Every loop gets `await __checkpoint();` (the Blockly loop trap), so Pause works inside loops and "forever" never blocks message handling.
   - Joint targets are converted from degrees to radians.
   - Literal targets are checked against the joint limits before the run.
+- **Lazy loading is race-safe.** Run and "Convert to JavaScript program" capture the project, the program and a session epoch before loading Blockly. After the load they verify that nothing changed: same project, same program (not deleted), still in Code Studio. If anything changed, they cancel. Generation runs only after that check.
 - **Generated code** can be inspected (Blocks | JavaScript (read-only)) or saved as a new JavaScript program ("Convert to JavaScript program"). The block program is kept. There is no conversion from JavaScript back to blocks.
 
 ## JavaScript editor
@@ -128,7 +129,7 @@ Loading:
 | Action | What happens |
 | --- | --- |
 | **Run** | Checks (open project, non-empty program, syntax, drive readiness when driving is used, joints and literal targets), switches to Code Studio mode, creates a session, starts the sandbox |
-| **Pause** | The robot is stopped through the API. New requests from the program are held. The program halts at its next robot call, `wait()` or loop checkpoint |
+| **Pause** | The robot is stopped through the API. New robot requests are held in a bounded queue (50; more are rejected); read-only requests are answered. The program halts at its next robot call, `wait()` or loop checkpoint |
 | **Resume** | Re-issues the interrupted motion for the time that was left. Waits continue, then held requests run in order |
 | **Stop** | Always available. Invalidates the session, kills the worker (removes the frame) and stops the robot through the API |
 | **Reset Robot** | Stops a running program, then calls the existing `robotControl.reset()` (runtime pose only; the design is unchanged) |

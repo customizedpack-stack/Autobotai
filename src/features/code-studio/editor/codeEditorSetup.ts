@@ -142,7 +142,6 @@ export interface EditorOptions {
   doc: string;
   readOnly?: boolean;
   onChange?: (doc: string) => void;
-  onSave?: () => void;
   onRun?: () => void;
 }
 
@@ -156,7 +155,7 @@ export function createEditorState(options: EditorOptions): EditorState {
     EditorView.lineWrapping,
     keymap.of([
       indentWithTab,
-      { key: 'Mod-s', preventDefault: true, run: () => (options.onSave?.(), true) },
+      // Ctrl+S is handled once, app-wide (useWorkspaceShortcuts saves the open program in Code Studio).
       { key: 'Mod-Enter', preventDefault: true, run: () => (options.onRun?.(), true) },
     ]),
   ];

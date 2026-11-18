@@ -17,7 +17,8 @@ import {
 } from '../programActions';
 import '../testUtils';
 import { migratePrograms } from './programMigration';
-import { programsForProject, useProgramStore } from './programStore';
+import { MAX_NAME_ATTEMPTS, programsForProject, uniqueProgramName, useProgramStore } from './programStore';
+import { PROGRAM_NAME_MAX, type RobotProgram } from './programTypes';
 import { PROGRAM_SCHEMA_VERSION } from './programTypes';
 import { STARTER_JAVASCRIPT } from './starterPrograms';
 
@@ -134,5 +135,61 @@ describe('program storage', () => {
     expect(project.schemaVersion).toBe(3);
     expect(Object.keys(project)).not.toContain('programs');
     expect(useSceneStore.getState().projectId).toBe(projectId);
+  });
+
+  // ── Regression: unique names never loop and always fit (Phase 4 review, defect 1) ──
+  it('makes unique names for 60-character names (the suffix fits; the base is shortened)', () => {
+    const long = 'R'.repeat(PROGRAM_NAME_MAX);
+    const names: string[] = [];
+    for (let i = 0; i < 15; i++) names.push(createProgram('javascript', long)!.name);
+    expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(15);
+    expect(names.every((n) => n.length <= PROGRAM_NAME_MAX)).toBe(true);
+    expect(names[0]).toBe(long);
+    expect(names[1]).toBe(`${'R'.repeat(PROGRAM_NAME_MAX - 4)} (2)`);
+    expect(names[14]).toBe(`${'R'.repeat(PROGRAM_NAME_MAX - 5)} (15)`);
+  });
+
+  it('repeated duplicates of long names and of copies stay unique and within the limit', () => {
+    const original = createProgram('javascript', 'D'.repeat(PROGRAM_NAME_MAX))!;
+    const copies: string[] = [];
+    let source = original.id;
+    for (let i = 0; i < 12; i++) {
+      const copy = duplicateProgram(i % 2 === 0 ? original.id : source)!;
+      copies.push(copy.name);
+      source = copy.id;
+    }
+    const all = programsForProject(useProgramStore.getState().programs, projectId).map((p) => p.name.toLowerCase());
+    expect(new Set(all).size).toBe(all.length);
+    expect(copies.every((n) => n.length <= PROGRAM_NAME_MAX && n.startsWith('Copy of '))).toBe(true);
+  });
+
+  it('detects duplicates without regard to case', () => {
+    createProgram('javascript', 'Patrol');
+    expect(createProgram('javascript', 'PATROL')!.name).toBe('PATROL (2)');
+    expect(createProgram('javascript', 'patrol')!.name).toBe('patrol (3)');
+  });
+
+  it('terminates with a fallback when every numbered name is taken', () => {
+    const base = 'X'.repeat(PROGRAM_NAME_MAX);
+    const programs: Record<string, RobotProgram> = {};
+    const add = (name: string) => (programs[name] = { id: name, projectId: 'p', name, description: '', language: 'javascript', source: '', version: 1, createdAt: '', updatedAt: '' });
+    add(base);
+    for (let n = 2; n <= MAX_NAME_ATTEMPTS; n++) add(`${'X'.repeat(PROGRAM_NAME_MAX - ` (${n})`.length)} (${n})`);
+    const started = Date.now();
+    const name = uniqueProgramName(programs, 'p', base);
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(name.length).toBeLessThanOrEqual(PROGRAM_NAME_MAX);
+    expect(Object.values(programs).some((p) => p.name.toLowerCase() === name.toLowerCase())).toBe(false);
+  });
+
+  it('duplicating copies unsaved edits but does not save the original as a side effect', () => {
+    const original = createProgram('javascript', 'Original')!;
+    const studio = useCodeStudioStore.getState();
+    studio.setBaseline(original.id, original.source);
+    studio.setDraft(original.id, '// unsaved edit');
+    const copy = duplicateProgram(original.id)!;
+    expect(copy.source).toBe('// unsaved edit');
+    expect(useProgramStore.getState().programs[original.id]!.source).toBe(original.source);
+    expect(isProgramDirty(useCodeStudioStore.getState(), original.id)).toBe(true);
   });
 });

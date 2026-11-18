@@ -12,7 +12,10 @@ const run = (seconds: number) => {
 };
 const x = () => useRobotStateStore.getState().rootPoses[byName('Chassis').id]?.position[0] ?? 0;
 let clock = 0;
-const newBridge = (maxCommandsPerSecond = 30) => new HostBridge({ sessionId: 'run_t', limits: { maxCommandsPerSecond, maxWaitMs: 60_000 }, now: () => clock });
+const newBridge = (maxCommandsPerSecond = 30, maxPausedRequests = 50) =>
+  new HostBridge({ sessionId: 'run_t', limits: { maxCommandsPerSecond, maxWaitMs: 60_000, maxPausedRequests }, now: () => clock });
+const accepted = () => events('command.accepted').map((e) => e.command as { type: string; payload: Record<string, unknown> });
+const flush = () => new Promise((r) => setTimeout(r, 0));
 
 beforeEach(() => {
   openExplorer(false);
@@ -102,7 +105,8 @@ describe('host bridge (program requests → Robot Control API → C2)', () => {
     expect(useRobotStateStore.getState().movement.intent.linear).toBe(0);
     const atPause = x();
     let held = false;
-    void bridge.handle('getState', {}).then(() => (held = true));
+    // A robot command (same speed setting, so the path is unchanged) must wait until Resume.
+    void bridge.handle('setSpeedPercent', { value: 50 }).then(() => (held = true));
     run(0.5);
     await Promise.resolve();
     expect(x()).toBeCloseTo(atPause, 6);
@@ -187,5 +191,96 @@ describe('host bridge (program requests → Robot Control API → C2)', () => {
     const bridge = newBridge();
     bridge.dispose();
     await expect(bridge.handle('stop', {})).rejects.toThrow('The program is no longer running.');
+  });
+
+  // ── Regression: bounded paused queue (Phase 4 review, defect 2) ──
+  describe('paused request queue', () => {
+    it('holds robot requests up to the limit and rejects the rest at once with a readable error', async () => {
+      const bridge = newBridge(30, 3);
+      bridge.pause();
+      const before = accepted().length;
+      const held = [1, 2, 3].map((n) => bridge.handle('setSpeedPercent', { value: 40 + n }));
+      expect(bridge.queuedRequests).toBe(3);
+      await expect(bridge.handle('drive.set', { speed: 0.5 })).rejects.toThrow('Too many requests while the program is paused (limit 3). Resume or stop the program first.');
+      await expect(bridge.handle('wait', { ms: 10 })).rejects.toThrow(/Too many requests/);
+      expect(bridge.queuedRequests).toBe(3);
+      // Nothing held is executed while paused.
+      await flush();
+      expect(accepted().length).toBe(before); // measured after the pause: nothing new ran
+      bridge.resume();
+      await expect(Promise.all(held)).resolves.toHaveLength(3);
+      expect(useRobotStateStore.getState().speedPercent).toBe(43);
+      bridge.dispose();
+    });
+
+    it('runs held requests in order after resume, and the limit applies again on the next pause', async () => {
+      const bridge = newBridge(30, 2);
+      for (let cycle = 0; cycle < 3; cycle++) {
+        clock += 2000; // a fresh rate-limit window per cycle
+        bridge.pause();
+        const a = bridge.handle('drive.set', { speed: 0.2 + cycle / 10 });
+        const b = bridge.handle('turn.set', { rate: -0.3 });
+        await expect(bridge.handle('turn.set', { rate: 0.9 })).rejects.toThrow(/limit 2/);
+        bridge.resume();
+        await Promise.all([a, b]);
+        const tail = accepted().slice(-2).map((c) => c.type);
+        expect(tail).toEqual(['drive', 'turn']);
+        expect(useRobotStateStore.getState().movement.intent).toEqual({ linear: 0.2 + cycle / 10, angular: -0.3 });
+        expect(bridge.queuedRequests).toBe(0);
+      }
+      bridge.dispose();
+    });
+
+    it('answers read-only requests while paused without moving the robot or using the queue', async () => {
+      const bridge = newBridge(30, 1);
+      await bridge.handle('drive.set', { speed: 1 });
+      bridge.pause();
+      const count = accepted().length;
+      const state = (await bridge.handle('getState', {})) as { movement: { intent: { linear: number } } };
+      expect(state.movement.intent.linear).toBe(0);
+      const joints = (await bridge.handle('joints', {})) as unknown[];
+      expect(joints.length).toBe(2);
+      await expect(bridge.handle('joint.info', { jointId: jointByName('Left Wheel Joint').id })).resolves.toMatchObject({ name: 'Left Wheel Joint' });
+      expect(bridge.queuedRequests).toBe(0);
+      expect(accepted().length).toBe(count);
+      bridge.dispose();
+    });
+
+    it('stop() while paused is always accepted (even when full) and Resume does not restart the interrupted motion', async () => {
+      const bridge = newBridge(30, 1);
+      let drove: unknown = null;
+      void bridge.handle('drive.forward', { speed: 1, durationMs: 2000 }).then((v) => (drove = v));
+      run(0.3);
+      bridge.pause();
+      void bridge.handle('setSpeedPercent', { value: 60 });
+      expect(bridge.queuedRequests).toBe(1);
+      const stopped = bridge.handle('stop', {});
+      expect(bridge.queuedRequests).toBe(2);
+      const xAtPause = x();
+      bridge.resume();
+      await stopped;
+      await flush();
+      expect(drove).toMatchObject({ status: 'stopped' });
+      run(0.5);
+      expect(x()).toBeCloseTo(xAtPause, 6);
+      expect(useRobotStateStore.getState().movement.intent).toEqual({ linear: 0, angular: 0 });
+      // Held requests ran in program order: speed setting, then stop.
+      expect(accepted().slice(-1)[0]!.type).toBe('stop');
+      expect(useRobotStateStore.getState().speedPercent).toBe(60);
+      bridge.dispose();
+    });
+
+    it('disposal rejects every held request, so no promise is left unresolved', async () => {
+      const bridge = newBridge(30, 10);
+      bridge.pause();
+      const held = [bridge.handle('drive.set', { speed: 0.5 }), bridge.handle('wait', { ms: 100 }), bridge.handle('joint.wait', { jointId: jointByName('Left Wheel Joint').id })];
+      const before = accepted().length;
+      bridge.dispose();
+      const settled = await Promise.allSettled(held);
+      expect(settled.map((r) => r.status)).toEqual(['rejected', 'rejected', 'rejected']);
+      expect(settled.every((r) => r.status === 'rejected' && (r.reason as Error).message === 'The program is no longer running.')).toBe(true);
+      expect(bridge.queuedRequests).toBe(0);
+      expect(accepted().length).toBe(before); // nothing executed on the way out
+    });
   });
 });

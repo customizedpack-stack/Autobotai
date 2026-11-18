@@ -4,6 +4,8 @@ Date: 18 Nov 2026 · Version 0.4.0 · Branch `phase-4-code-studio`
 
 Architecture: `docs/architecture/CODE-STUDIO.md`. Sandbox and protocol: `docs/architecture/CODE-EXECUTION-SANDBOX.md`.
 
+> **Updated after the second review (19 Nov 2026).** Three reported defects were fixed, and two more were found and fixed during the extra checks. See "Second review fixes" at the end of this report. The test numbers in section 12 are the latest executed results.
+
 ## 1. Features implemented
 
 - **Code Studio mode.** The **Code** tab in the top bar was locked before Phase 4 and is now active.
@@ -211,16 +213,17 @@ No Phase 1–3 test was removed or weakened.
 
 All results below were **executed** on 18 Nov 2026 (Node 22, headless Chrome with software WebGL, 2 CPU cores).
 
-**Unit and integration tests (Vitest), all executed:** `npm run test` → **178 / 178 passed** in 19 files.
+**Unit and integration tests (Vitest), all executed:** `npm run test` → **197 / 197 passed** in 20 files (178 at the first delivery, plus 19 regression tests from the second review).
 
 | Group | Tests |
 | --- | --- |
 | Phase 1–3 tests (unchanged) | 113 |
 | `messageProtocol.test.ts` | 6 |
 | `workerRuntime.test.ts` | 10 |
-| `hostBridge.test.ts` (real API, C2, engine) | 10 |
-| `executionManager.test.ts` (real runtime in an isolated VM) | 15 |
-| `programStore.test.ts` | 9 |
+| `hostBridge.test.ts` (real API, C2, engine) | 15 (5 new) |
+| `executionManager.test.ts` (real runtime in an isolated VM) | 16 (1 new) |
+| `programStore.test.ts` | 14 (5 new) |
+| `runActions.test.ts` (new) | 8 |
 | `programValidation.test.ts` | 4 |
 | `blockly.test.ts` (headless Blockly) | 11 |
 
@@ -315,3 +318,44 @@ Phase 5 has **not** been started. It is waiting for your review and approval.
 8. Try `while (true) {}`, then **Stop**. The app stays responsive and stops at once.
 9. Click **Save** (or press Ctrl+S), rename the program, reload the page and open **Code** again: the program is back.
 10. Click **Build**: editing works again. Press **M** for Control Mode: keyboard driving works as in Phase 3.
+
+## Second review fixes (19 Nov 2026)
+
+All fixes are small and targeted. No feature was rebuilt, no Phase 1–3 behavior changed, schema v3 is unchanged, and no test was removed or weakened.
+
+| # | Defect | Fix | Files | New tests |
+| --- | --- | --- | --- | --- |
+| 1 | `uniqueProgramName()` could loop forever: with a 60-character base, `"name (2)".slice(0, 60)` gave back the same name every time | The suffix gets its room first and only the base is shortened, so every attempt is different. At most 10,000 numbered attempts, then random suffixes (checked), then a time-based suffix. Always terminates; case-insensitive | `storage/programStore.ts` | 4 in `programStore.test.ts`: 15 copies of a 60-character name, repeated duplicates of copies, case-insensitive clash, fallback with all 10,000 numbered names taken |
+| 2 | The paused request queue had no limit | New limit `maxPausedRequests` (default 50). Extra requests are rejected at once with "Too many requests while the program is paused (limit N) …". Read-only requests (`getState`, `joints`, `joint.info`) are answered during a pause without queuing. A program's `stop()` is always accepted and runs in order, and Resume then does not restart the interrupted motion. Disposal rejects every held request. Nothing held runs while paused | `runtime/hostBridge.ts`, `runtime/executionLimits.ts` | 5 in `hostBridge.test.ts`: full queue, repeated pause/resume cycles in order, read-only during pause, stop during pause (full queue, no restart), disposal settles all |
+| 3 | A Blockly run or convert could use stale context after the lazy Blockly load | The project, program and a session epoch (raised when leaving Code Studio or closing a project) are captured before the load and verified after it: same project, same block program, not deleted, still in Code Studio. Generation runs only after that check (it is synchronous). No unsafe `!`. The same protection applies to Convert | `runActions.ts`, `components/CodeStudioPane.tsx` (the read-only code view refreshes for its program) | `runActions.test.ts` (8): unchanged case runs; switching program, switching project, deleting the program, leaving and returning, leaving to Control all cancel; Convert protected; null results handled |
+| 4 | Found during the extra checks: **Duplicate** saved the original's unsaved edits as a side effect | The copy takes the unsaved edits; the original stays unsaved | `programActions.ts` | 1 in `programStore.test.ts` |
+| 5 | Found during the extra checks: **Ctrl+S inside the code editor ran twice.** It saved, then logged a misleading "has no unsaved changes" (confirmed in the browser) | The editor's own Ctrl+S binding was removed. The app-wide handler already saves the program in Code Studio, inside the editor too, and blocks the browser's save dialog. Ctrl+S elsewhere is unchanged | `editor/codeEditorSetup.ts`, `components/JavaScriptEditor.tsx`, `components/CodeStudioPane.tsx` | Browser check in the Code Studio suite: Ctrl+S saves exactly once |
+
+Also added during the extra checks: 1 test in `executionManager.test.ts`. A worker crash during movement stops the robot, later messages from the crashed session are ignored, and Stop still works afterwards.
+
+**One existing test was adapted, not weakened.** A host-bridge test used `getState` as the example of a request held during a pause. Read-only requests are now answered during a pause by design. The test now holds a robot command (`setSpeedPercent(50)`, which leaves the path unchanged) and still asserts that it waits until Resume. A separate new test asserts that read-only requests are answered while paused.
+
+**Extra checks with no defect found:**
+- Worker and iframe cleanup: no sandbox frame is left after completion, Stop, error or leaving Code Studio.
+- Late messages are rejected.
+- The robot is stopped after the project closes.
+- Pause/resume works with timed and untimed movement.
+- C2 validation applies to every program command.
+- Program persistence and migration work.
+- Build and Control modes, the viewport and keyboard driving are unchanged.
+
+**Results (all executed on 19 Nov 2026):**
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass |
+| `npm run lint` | Pass, no findings |
+| `npm run test` | **197 / 197** in 20 files |
+| `npm run build` | Pass |
+| `npm run test:e2e` | **98 / 98** steps in 5 suites (21 + 20 + 21 + 17 + 19) |
+
+**Remaining limitations (unchanged):**
+- Pause cannot interrupt a JavaScript loop that never calls the robot API or `wait()`.
+- The demo host's support for sandboxed `blob:` workers was not verifiable from here.
+- Only Chrome was tested.
+
