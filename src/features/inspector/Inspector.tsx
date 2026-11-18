@@ -23,6 +23,7 @@ import { ControllerSection } from './ControllerSection';
 import { JointDialog } from './JointDialog';
 import { JointInspector } from './JointInspector';
 import { PhysicsSection } from './PhysicsSection';
+import { PartSensors, SensorsSection } from '../sensors/components/SensorsSection';
 import { VectorRow } from './VectorRow';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -220,6 +221,10 @@ function ObjectInspector({ object }: { object: SceneObject }) {
         <PhysicsSection object={object} />
       </Section>
 
+      <Section title="Sensors on this part">
+        <PartSensors partId={object.id} />
+      </Section>
+
       <Section title="Metadata">
         <Row label="ID">
           <span className="font-mono text-[11px] text-muted">{object.id}</span>
@@ -286,6 +291,7 @@ function ProjectSummary() {
         </div>
       </Section>
       <ControllerSection />
+      <SensorsSection />
       <div className="flex flex-col items-center px-6 py-8 text-center">
         <MousePointerClick size={18} className="text-faint" />
         <p className="mt-2 text-xs text-muted">Select a part or a joint marker in the viewport or the Objects tree to inspect and edit it.</p>

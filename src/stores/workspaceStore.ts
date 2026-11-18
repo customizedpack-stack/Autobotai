@@ -4,7 +4,7 @@ import { safeStorage } from '../utils/storage';
 
 export type LeftPanelTab = 'components' | 'library' | 'templates' | 'objects';
 /** 'program' is the Code Studio execution console (shown in Code Studio only). */
-export type BottomPanelTab = 'console' | 'events' | 'status' | 'program';
+export type BottomPanelTab = 'console' | 'events' | 'status' | 'program' | 'sensors';
 export type PanelId = 'left' | 'right' | 'bottom';
 
 interface WorkspaceState {

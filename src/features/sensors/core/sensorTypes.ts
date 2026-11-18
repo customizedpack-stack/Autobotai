@@ -43,6 +43,8 @@ export interface ReadingBase {
 export interface DistanceRay {
   /** Angle of this ray from the sensor's +X axis, about the sensor's Y axis (rad, positive = left). */
   angle: number;
+  /** World direction of this ray. */
+  direction: XYZ;
   distance: number | null;
   detected: boolean;
   status: 'hit' | 'no-hit' | 'too-close';

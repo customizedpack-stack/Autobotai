@@ -46,9 +46,10 @@ export function sampleDistance(config: DistanceSensorConfig, source: SensorSourc
     const direction = rotateVec(pose.rotation, [Math.cos(angle), 0, -Math.sin(angle)]);
     const hit = source.castRay(pose.position, direction, config.maxRange, config.ignoreGround);
     if (hit === undefined) return empty('The distance sensor needs the Physics engine: Kinematic mode has no physical world to measure.', pose.position, center);
-    if (hit === null || hit.distance > config.maxRange) rays.push({ angle, distance: null, detected: false, status: 'no-hit' });
-    else if (hit.distance < config.minRange) rays.push({ angle, distance: null, detected: true, status: 'too-close', hitPoint: xyz(hit.point), hitNormal: xyz(hit.normal) });
-    else rays.push({ angle, distance: hit.distance, detected: true, status: 'hit', hitPoint: xyz(hit.point), hitNormal: xyz(hit.normal) });
+    const dir = xyz(direction);
+    if (hit === null || hit.distance > config.maxRange) rays.push({ angle, direction: dir, distance: null, detected: false, status: 'no-hit' });
+    else if (hit.distance < config.minRange) rays.push({ angle, direction: dir, distance: null, detected: true, status: 'too-close', hitPoint: xyz(hit.point), hitNormal: xyz(hit.normal) });
+    else rays.push({ angle, direction: dir, distance: hit.distance, detected: true, status: 'hit', hitPoint: xyz(hit.point), hitNormal: xyz(hit.normal) });
   }
   let nearest: DistanceRay | null = null;
   for (const r of rays) if (r.status === 'hit' && (!nearest || r.distance! < nearest.distance!)) nearest = r;

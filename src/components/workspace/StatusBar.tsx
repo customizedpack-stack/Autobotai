@@ -35,7 +35,7 @@ export function StatusBar() {
         <span data-testid="status-engine">{mode === 'build' ? 'Simulation: off in Build Mode' : engine === 'physics' ? `Physics engine (Rapier) · ${simState}` : 'Kinematic engine'}</span>
       </span>
       <span className={cn(dirty ? 'text-warn' : 'text-muted')}>{dirty ? 'Draft: unsaved' : 'Draft: saved locally'}</span>
-      <span className="hidden text-faint sm:inline">Phase 5</span>
+      <span className="hidden text-faint sm:inline">Phase 6</span>
     </footer>
   );
 }
