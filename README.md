@@ -2,7 +2,17 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 7 — Environment Editor** (on top of Phases 1–6). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), and now **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles (see `docs/`).
+**Current status: Phase 8 — Camera Simulation** (on top of Phases 1–7). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, and now give robots **cameras** that see those environments (see `docs/`).
+
+## Cameras
+
+1. In Build Mode, open **Inspector → Sensors** and click **Camera**. A Camera part appears at the front of the robot, looking forward. Move or rotate the part to aim it; the camera settings set the field of view, resolution, clipping and frame rate.
+2. Open the **Camera** tab at the bottom to watch the live image. It follows the robot in the Kinematic and Physics engines and shows walls, boxes, ramps and other objects of your environment (they hide what is behind them).
+3. In **Code**, use `await robotCamera.capture("front-camera")` (image, brightness, mean color) or `robotCamera.subscribe(...)`, or the Blockly **Camera** blocks.
+
+Camera images are simulated; there is no object recognition. Details: `docs/architecture/PHASE-8-CAMERA-SIMULATION.md`.
+
+Older robots: Explorer Bots saved in Phase 1 can be driven again. **Set up differential drive** repairs them (see `docs/DRIVE-COMPATIBILITY-FIX.md`).
 
 ## Environment Editor
 
@@ -97,7 +107,7 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor and the Phase 7 final verification (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix and Phase 8 cameras (needs `npm run build` first and Chrome installed) |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology
@@ -135,4 +145,4 @@ tests/e2e/        Browser test suites (one per phase)
 
 ## Where your work is saved
 
-Projects are saved as **drafts in your browser** (localStorage). Older drafts (Phase 1 and Phase 2) are upgraded to the current format (schema v3) automatically when you open the app. The driven position of a robot is never saved unless you click **Apply pose**. Code Studio programs are saved per robot project in the same browser (key `arai.programs.v1`). Environments are saved separately (key `arai.environments.v1`); a project only remembers which environment it uses. They stay on that computer and browser only. Cloud accounts and saving arrive in Phase 8.
+Projects are saved as **drafts in your browser** (localStorage). Older drafts (Phase 1 and Phase 2) are upgraded to the current format (schema v3) automatically when you open the app. The driven position of a robot is never saved unless you click **Apply pose**. Code Studio programs are saved per robot project in the same browser (key `arai.programs.v1`). Environments are saved separately (key `arai.environments.v1`); a project only remembers which environment it uses. They stay on that computer and browser only. Cloud accounts and cloud saving arrive in a later phase.

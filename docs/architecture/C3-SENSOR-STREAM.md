@@ -75,3 +75,8 @@ Type-specific fields are in `SENSOR-SIMULATION.md`.
 - Encoders integrate the wheel angle on every tick; the other sensors only work when they are due.
 - The UI snapshot is refreshed at most 10 times per second; the viewport reads readings directly once per frame without React updates.
 - Measured (Node, unit test): 5 s of physics took 166 ms without sensors and 173 ms with a 15-ray scanner at 60 Hz, two encoders and an IMU (4,500 ray casts).
+
+
+## Phase 8: cameras
+
+Cameras are sensors of type `camera` in the same `sensors` list, but they are **not** sampled by the 60 Hz sensor tick and their images do **not** go into the stream's ring buffers, because they are far larger than readings. The sensor manager skips camera configurations. A separate camera manager renders frames from the viewport's render loop, only while something needs them, and delivers them to the Camera Monitor, program subscriptions and captures. Camera lifecycle events use the bus channel `camera.event`. Programs reach cameras through `robotCamera` (operations `camera.*` in the sandbox protocol), with their own per-run limits. See `PHASE-8-CAMERA-SIMULATION.md`.
