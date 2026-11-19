@@ -19,7 +19,11 @@ import { SceneAxes } from './SceneAxes';
 import { Geometry, SceneObjectNode, type SceneTreeContext } from './SceneObjectNode';
 import { TransformGizmo } from './TransformGizmo';
 import { isWebGLAvailable } from './webgl';
-import { EnvironmentObstacles } from '../physics/components/EnvironmentObstacles';
+import { EnvironmentScene } from '../environment/components/EnvironmentScene';
+import { EnvironmentGizmo } from '../environment/components/EnvironmentGizmo';
+import { ENV_DRAG_TYPE } from '../environment/components/EnvironmentLeftPanel';
+import { addObject, selectObject, useEnvironmentStore } from '../environment/store/environmentStore';
+import type { EnvironmentObjectKind, ObstacleShape } from '../../types/environment';
 import { PhysicsDebugView } from '../physics/components/PhysicsDebugView';
 import { SensorRaysView } from '../sensors/components/SensorRaysView';
 
@@ -37,6 +41,7 @@ function SceneTree() {
   const showJoints = useViewportStore((s) => s.showJoints);
   const dropTargetId = useViewportStore((s) => s.dropPreview?.parentId ?? null);
   const rootPoses = useRobotStateStore((s) => s.rootPoses);
+  const environmentMode = useRobotStateStore((s) => s.mode === 'environment');
   const jointPositions = useRobotStateStore((s) => s.jointPositions);
 
   const structure = useMemo(() => {
@@ -60,8 +65,9 @@ function SceneTree() {
     jointPositions,
     shadows,
     showJoints,
-    onSelect: select,
-    onSelectJoint: selectJoint,
+    // In the Environment Editor the robot is shown for reference only (not selectable).
+    onSelect: environmentMode ? noop : select,
+    onSelectJoint: environmentMode ? noop : selectJoint,
     onHover: hover,
   };
 
@@ -73,6 +79,8 @@ function SceneTree() {
     </>
   );
 }
+
+const noop = () => undefined;
 
 /** Translucent preview of a component being dragged in from the library. */
 function DropGhost() {
@@ -125,7 +133,7 @@ function PickingBridge() {
     };
     if (w.__ARAI_E2E__) {
       (w as unknown as { __araiCamera: () => number[] }).__araiCamera = () => camera.position.toArray();
-      w.__araiIdByName = (name) => useSceneStore.getState().objects.find((o) => o.name === name)?.id;
+      w.__araiIdByName = (name) => useSceneStore.getState().objects.find((o) => o.name === name)?.id ?? useEnvironmentStore.getState().draft?.objects.find((o) => o.name === name)?.id;
       w.__araiScreenPosition = (id) => {
         const object = objectRegistry.get(id);
         if (!object) return null;
@@ -192,14 +200,21 @@ export function Viewport() {
 
   const onPointerMissed = useCallback(() => {
     if (gizmoInteraction.active || performance.now() < gizmoInteraction.until) return;
-    clear();
+    if (useRobotStateStore.getState().mode === 'environment') selectObject(null);
+    else clear();
   }, [clear]);
 
-  const control = useRobotStateStore((s) => s.mode !== 'build');
+  const mode = useRobotStateStore((s) => s.mode);
   // No drops in Control Mode or Code Studio: the design is locked while driving.
   const draggedComponent = () => (useRobotStateStore.getState().mode !== 'build' ? null : useViewportStore.getState().draggingComponentId);
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    // Phase 7: environment objects dragged from the Environment library.
+    if (useRobotStateStore.getState().mode === 'environment' && event.dataTransfer.types.includes(ENV_DRAG_TYPE)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      return;
+    }
     const componentId = draggedComponent();
     if (!componentId) return;
     event.preventDefault();
@@ -216,6 +231,14 @@ export function Viewport() {
   };
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    const environmentItem = event.dataTransfer.getData(ENV_DRAG_TYPE);
+    if (environmentItem && useRobotStateStore.getState().mode === 'environment') {
+      event.preventDefault();
+      const { kind, shape } = JSON.parse(environmentItem) as { kind: EnvironmentObjectKind; shape?: ObstacleShape };
+      const hit = viewportPicker.pick(event.clientX, event.clientY);
+      addObject(kind, { shape, at: hit ? [Number(hit.point[0].toFixed(3)), Number(hit.point[2].toFixed(3))] : undefined });
+      return;
+    }
     const componentId = event.dataTransfer.getData(COMPONENT_DRAG_TYPE) || draggedComponent();
     if (!componentId) return;
     event.preventDefault();
@@ -272,12 +295,13 @@ export function Viewport() {
 
         <SceneTree />
         <DropGhost />
-        {!control && <TransformGizmo />}
+        {mode === 'build' && <TransformGizmo />}
+        {mode === 'environment' && <EnvironmentGizmo />}
 
         <OrbitControls makeDefault enableDamping dampingFactor={0.12} minDistance={0.15} maxDistance={60} />
         <CameraRig />
         <PickingBridge />
-        <EnvironmentObstacles />
+        <EnvironmentScene />
         <PhysicsDebugView />
         <SensorRaysView />
 

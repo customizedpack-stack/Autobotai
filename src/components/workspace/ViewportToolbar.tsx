@@ -29,7 +29,8 @@ export function ViewportToolbar() {
   const snap = useViewportStore((s) => s.snap);
   const toggleSnap = useViewportStore((s) => s.toggleSnap);
   // Transform tools are hidden whenever the design is locked (Control Mode or Code Studio).
-  const control = useRobotStateStore((s) => s.mode !== 'build');
+  const control = useRobotStateStore((s) => s.mode === 'control' || s.mode === 'code');
+  const editingEnvironment = useRobotStateStore((s) => s.mode === 'environment');
   const followRobot = useViewportStore((s) => s.followRobot);
   const toggleFollowRobot = useViewportStore((s) => s.toggleFollowRobot);
 
@@ -105,6 +106,11 @@ export function ViewportToolbar() {
           {activeView === 'custom' ? 'Custom view' : `${CAMERA_VIEWS.find((v) => v.id === activeView)?.label} view`} · Y-up · meters
         </div>
       </div>
+      {editingEnvironment && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-2" data-testid="environment-banner">
+          <span className="rounded-md border border-accent/40 bg-panel/90 px-2.5 py-1 text-[11px] font-medium text-accent">Environment Editor — Edit Mode (physics off). Use Test Environment to run the robot.</span>
+        </div>
+      )}
       {control && (
         <div
           className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-2"
@@ -113,7 +119,7 @@ export function ViewportToolbar() {
           <EngineBanner />
         </div>
       )}
-      {showHints && !control && (
+      {showHints && !control && !editingEnvironment && (
         <div className="pointer-events-none absolute bottom-2 left-2 hidden rounded-md bg-panel/80 px-2 py-1 text-[10.5px] text-faint md:block">
           Left-drag orbit · Right-drag pan · Wheel zoom · Click to select · W/E/R move, rotate, scale
         </div>

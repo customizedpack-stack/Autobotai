@@ -38,6 +38,7 @@ const MODE_MESSAGES: Record<WorkspaceMode, string> = {
   build: 'Build Mode: editing unlocked. The robot is back in its design pose.',
   control: 'Control Mode: keyboard and buttons now drive the robot. Editing is locked. Choose the Kinematic or Physics engine in the Simulation panel.',
   code: 'Code Studio: programs drive the robot. Editing is locked. Choose the Kinematic or Physics engine in the Simulation panel.',
+  environment: 'Environment Editor (Edit Mode): build and change the environment. The robot design is locked. Use Test Environment to run the robot in it.',
 };
 
 export function setWorkspaceMode(mode: WorkspaceMode): void {

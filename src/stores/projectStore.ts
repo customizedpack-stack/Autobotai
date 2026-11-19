@@ -26,6 +26,8 @@ interface ProjectState {
     data: { name: string; objects: SceneObject[]; joints: RobotJoint[]; actuators: RobotActuator[]; controllers: RobotController[]; sensors?: RobotSensor[] },
   ) => RobotProject | null;
   renameProject: (id: string, name: string) => void;
+  /** Phase 7: remember the environment this project simulates in (not part of the robot undo history). */
+  setProjectEnvironment: (id: string, environmentId: string) => void;
   deleteProject: (id: string) => void;
   getProject: (id: string) => RobotProject | undefined;
 }
@@ -107,6 +109,12 @@ export const useProjectStore = create<ProjectState>()(
         });
         bus.publish('project.deleted', { projectId: id });
         log.warning('project', `Deleted project "${existing.name}".`);
+      },
+
+      setProjectEnvironment: (id, environmentId) => {
+        const existing = get().projects[id];
+        if (!existing || existing.environmentId === environmentId) return;
+        set((state) => ({ projects: { ...state.projects, [id]: { ...existing, environmentId } } }));
       },
 
       getProject: (id) => get().projects[id],

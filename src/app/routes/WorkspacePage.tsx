@@ -4,6 +4,8 @@ import { Monitor, X } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { BottomPanel } from '../../components/workspace/BottomPanel';
+import { EnvironmentToolbar } from '../../features/environment/components/EnvironmentToolbar';
+import '../../features/environment/environmentSession';
 import { LeftPanel } from '../../components/workspace/LeftPanel';
 import { RightPanel } from '../../components/workspace/RightPanel';
 import { SettingsDialog } from '../../components/workspace/SettingsDialog';
@@ -64,6 +66,7 @@ export default function WorkspacePage() {
   const programsDirty = useCodeStudioStore((s) => Object.keys(s.drafts).length > 0 && hasUnsavedPrograms());
   const dirty = sceneDirty || programsDirty;
   const code = useRobotStateStore((s) => s.mode === 'code');
+  const environment = useRobotStateStore((s) => s.mode === 'environment');
   const confirmOnLeave = useSettingsStore((s) => s.confirmUnsavedOnLeave);
   const compact = useMediaQuery(COMPACT_WORKSPACE_QUERY);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -138,6 +141,7 @@ export default function WorkspacePage() {
       <div className="relative flex min-h-0 flex-1" data-testid="workspace-main">
         <LeftPanel overlay={compact} />
         <div className="flex min-w-0 flex-1 flex-col">
+          {environment && <EnvironmentToolbar />}
           {/* Code Studio: editor beside the SAME viewport element (it is never remounted when the mode changes). */}
           <div className={code ? 'flex min-h-0 flex-1 flex-col lg:flex-row' : 'flex min-h-0 flex-1'} data-testid="workspace-center">
             {code && ready && (

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import type { EnvironmentId } from '../engine/environments';
 
 /**
  * Simulation engine choice and status (runtime only, never saved).
@@ -13,7 +12,8 @@ export type SimulationRunState = 'stopped' | 'starting' | 'running' | 'paused';
 
 export interface SimulationSettings {
   gravityEnabled: boolean;
-  environment: EnvironmentId;
+  /** Phase 7: id of a template ("floor", "arena", "obstacles", "ramp-test") or a saved environment. */
+  environment: string;
   /** Show collision shapes, joints, velocities and contacts in the viewport. */
   debug: boolean;
 }

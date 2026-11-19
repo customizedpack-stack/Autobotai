@@ -59,7 +59,7 @@ export function ConsoleView() {
           <div key={entry.id} className="flex gap-3 px-3 py-0.5 hover:bg-raised/50">
             <span className="shrink-0 text-faint">{formatClock(entry.timestamp)}</span>
             <span className={cn('w-14 shrink-0 uppercase', LEVEL_STYLE[entry.level])}>{entry.level}</span>
-            <span className="w-16 shrink-0 text-muted">{entry.source}</span>
+            <span className="w-20 shrink-0 truncate text-muted">{entry.source}</span>
             <span className="min-w-0 text-ink/90">{entry.message}</span>
           </div>
         ))

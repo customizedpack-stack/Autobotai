@@ -63,7 +63,10 @@ export function sampleDistance(config: DistanceSensorConfig, source: SensorSourc
     status: tooClose ? 'too-close' : nearest ? 'hit' : 'no-hit',
     minRange: config.minRange,
     maxRange: config.maxRange,
-    ...(nearest?.hitPoint ? { hitPoint: nearest.hitPoint, hitNormal: nearest.hitNormal } : {}),
+    // Hit point of the nearest valid hit, or else of the ray that found something too close.
+    ...((nearest ?? rays.find((r) => r.status === 'too-close'))?.hitPoint
+      ? { hitPoint: (nearest ?? rays.find((r) => r.status === 'too-close'))!.hitPoint, hitNormal: (nearest ?? rays.find((r) => r.status === 'too-close'))!.hitNormal }
+      : {}),
     origin: xyz(pose.position),
     direction: xyz(center),
     rays,

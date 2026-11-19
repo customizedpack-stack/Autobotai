@@ -25,6 +25,8 @@ export interface RobotProject {
   controllers: RobotController[];
   /** Phase 6: sensor configurations (optional; projects without sensors have no field). */
   sensors?: RobotSensor[];
+  /** Phase 7: the environment (template or saved environment id) this project simulates in. Optional. */
+  environmentId?: string;
   createdAt: string;
   updatedAt: string;
   /** Last time the draft was explicitly saved in this browser. */

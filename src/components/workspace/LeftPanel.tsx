@@ -8,6 +8,7 @@ import { useWorkspaceStore, type LeftPanelTab } from '../../stores/workspaceStor
 import { IconButton } from '../common/Button';
 import { ObjectsPanel } from './ObjectsPanel';
 import { CodeStudioSidePanel } from '../../features/code-studio/components/CodeStudioSidePanel';
+import { EnvironmentLeftPanel } from '../../features/environment/components/EnvironmentLeftPanel';
 
 const PLACEHOLDERS: Record<LeftPanelTab, string> = {
   components: 'Search components',
@@ -57,7 +58,19 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
     </aside>
   );
 
-  const panel = code ? codePanel : (
+  const environmentPanel = (
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-panel" data-testid="left-panel" aria-label="Environment panel">
+      <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
+        <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">Environment</span>
+        <IconButton label="Collapse left panel" onClick={() => togglePanel('left')}>
+          <PanelLeftClose size={15} />
+        </IconButton>
+      </div>
+      <EnvironmentLeftPanel />
+    </aside>
+  );
+
+  const panel = mode === 'environment' ? environmentPanel : code ? codePanel : (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-panel" data-testid="left-panel" aria-label="Library panel">
       <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
         <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">Explorer</span>
