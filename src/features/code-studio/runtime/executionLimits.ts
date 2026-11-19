@@ -31,6 +31,8 @@ export interface ExecutionLimits {
   maxSensorSubscriptions: number;
   /** Phase 6: most readings per second delivered to one subscription (newest wins). */
   maxSensorHz: number;
+  /** Phase 6: encoder resets (a sensor-state change) per second per run, counted apart from reads. */
+  maxEncoderResetsPerSecond: number;
 }
 
 export const DEFAULT_LIMITS: ExecutionLimits = {
@@ -48,6 +50,7 @@ export const DEFAULT_LIMITS: ExecutionLimits = {
   maxSensorReadsPerSecond: 200,
   maxSensorSubscriptions: 8,
   maxSensorHz: 20,
+  maxEncoderResetsPerSecond: 10,
 };
 
 /** Human-readable summary, shown in the UI and the docs. */

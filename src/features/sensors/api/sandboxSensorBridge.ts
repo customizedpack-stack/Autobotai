@@ -11,6 +11,8 @@ import { currentProjectId, listSensors, odometryCopy, readSensorCopy, requireSen
  * - Subscriptions belong to this run only. Each delivers at most `maxHz` readings per
  *   second (the newest reading wins), nothing while the program is paused, and all of
  *   them end when the run ends (Stop, finish, error, worker terminated).
+ * - Encoder resets CHANGE sensor state, so they have their own per-run limit
+ *   (`maxEncoderResetsPerSecond`), separate from reads. A new run starts with fresh counters.
  */
 
 export type SensorOp = 'sensor.list' | 'sensor.read' | 'sensor.subscribe' | 'sensor.unsubscribe' | 'sensor.resetEncoder' | 'sensor.odometry';
@@ -26,6 +28,8 @@ export interface SandboxSensorLimits {
   maxSensorReadsPerSecond: number;
   maxSensorSubscriptions: number;
   maxSensorHz: number;
+  /** Optional for older callers; defaults to 10. */
+  maxEncoderResetsPerSecond?: number;
 }
 
 interface Subscription {
@@ -46,6 +50,7 @@ export class SandboxSensorBridge {
   private readonly now: () => number;
   private readonly subscriptions = new Map<number, Subscription>();
   private readonly readTimes: number[] = [];
+  private readonly resetTimes: number[] = [];
   private nextId = 1;
   private paused = false;
   private disposed = false;
@@ -77,6 +82,7 @@ export class SandboxSensorBridge {
           this.countRead();
           return Promise.resolve(odometryCopy());
         case 'sensor.resetEncoder':
+          this.countReset();
           return Promise.resolve(resetEncoderCounter(args.sensorId as string));
         case 'sensor.subscribe':
           return Promise.resolve(this.subscribe(args.sensorId as string, args.type as string, args.maxHz as number | undefined));
@@ -95,6 +101,17 @@ export class SandboxSensorBridge {
       throw new SensorApiError(`Too many sensor reads: the limit is ${this.limits.maxSensorReadsPerSecond} per second. Add a wait, or use subscribe().`);
     }
     this.readTimes.push(now);
+  }
+
+  /** Encoder resets per second for this run (rejected requests change nothing). */
+  private countReset(): void {
+    const limit = this.limits.maxEncoderResetsPerSecond ?? 10;
+    const now = this.now();
+    while (this.resetTimes.length > 0 && now - this.resetTimes[0]! >= 1000) this.resetTimes.shift();
+    if (this.resetTimes.length >= limit) {
+      throw new SensorApiError(`Too many encoder resets: the limit is ${limit} per second. Reset once, then read the encoder.`);
+    }
+    this.resetTimes.push(now);
   }
 
   private subscribe(sensorId: string, type: string, maxHz?: number): { subscriptionId: number; sensorId: string; maxHz: number } {

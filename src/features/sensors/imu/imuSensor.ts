@@ -15,20 +15,38 @@ import { angularVelocityFromQuats, eulerFromQuat, toSensorFrame } from './imuMat
  *   divided by the simulated time between them (a whole number of 1/60 s ticks).
  *   It does NOT include gravity; `specificForce` = acceleration − gravity is what a real
  *   accelerometer reads (+9.81 m/s² up when resting).
- * - The first sample after a start or reset has no previous velocity: it is marked
- *   invalid ("warming up") instead of reporting a spike.
+ *
+ * Warm-up (no acceleration is ever invented):
+ * - Physics: velocity is measured directly, so acceleration needs 2 samples
+ *   (sample 1: velocity only → invalid; sample 2: first valid acceleration).
+ * - Kinematic: velocity itself comes from two poses, so acceleration needs 3 samples
+ *   (sample 1: pose only; sample 2: first velocity; sample 3: first valid acceleration).
+ * - Until then the reading is valid: false with a "Warming up" error, and the reported
+ *   acceleration is 0 (a placeholder, not a measurement).
+ * - Exception: an `atRest` sample. The sensor manager only asks for one while the
+ *   kinematic engine is not stepping (the robot provably stands still); zero velocity and
+ *   zero acceleration are then the actual kinematic state, so it is valid.
+ * - reset() clears pose, velocity and the sample count (start, Reset, rebuild, jump).
  */
 
 export class ImuState {
   prevVelocity: Vec3 | null = null;
   prevPose: { position: Vec3; rotation: Quat } | null = null;
   prevTime = 0;
+  /** Samples taken since the last reset (for the warm-up message). */
+  samples = 0;
 
   reset(): void {
     this.prevVelocity = null;
     this.prevPose = null;
     this.prevTime = 0;
+    this.samples = 0;
   }
+}
+
+/** Samples needed before the first valid acceleration: 2 when velocity is measured, 3 when it comes from poses. */
+export function samplesForAcceleration(velocityMeasured: boolean): number {
+  return velocityMeasured ? 2 : 3;
 }
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -49,12 +67,15 @@ export function sampleImu(
   }
   const t = base.simTime;
   const dt = state.prevPose ? t - state.prevTime : 0;
+  state.samples += 1;
   let velocity: Vec3 | null = null;
   let angular: Vec3 = [0, 0, 0];
+  let velocityMeasured = false;
   if (options.atRest) {
     velocity = [0, 0, 0];
   } else {
     const measured = source.pointVelocity(config.partId, pose.position);
+    velocityMeasured = measured !== null;
     if (measured) {
       velocity = measured.linear;
       angular = measured.angular;
@@ -76,7 +97,9 @@ export function sampleImu(
     ...base,
     type: 'imu',
     valid: acceleration !== null,
-    ...(acceleration === null ? { error: 'Warming up: acceleration needs two samples (available from the next reading).' } : {}),
+    ...(acceleration === null
+      ? { error: `Warming up: acceleration needs ${samplesForAcceleration(velocityMeasured)} samples (${state.samples} so far).` }
+      : {}),
     orientation: pose.rotation,
     euler: eulerFromQuat(pose.rotation),
     angularVelocity: xyz(toFrame(angular)),

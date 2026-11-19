@@ -183,7 +183,8 @@ function sampleEncoder(r: Runtime, b: Omit<ReadingBase, 'type' | 'valid'>, atRes
   if (angle === null) {
     return { ...reading, valid: false, error: 'The wheel joint of this encoder is not in the simulation.', angle: 0, angleDelta: 0, angularVelocity: 0, revolutions: 0, ticks: 0, distance: null };
   }
-  const value = sign * state.raw;
+  // `|| 0` turns −0 (an inverted zero) into 0.
+  const value = sign * state.raw || 0;
   const delta = sign * (state.raw - state.rawAtLastReading);
   state.rawAtLastReading = state.raw;
   const measuredRate = atRest ? 0 : (source!.jointRate(config.jointId) ?? r.tickRate ?? 0);

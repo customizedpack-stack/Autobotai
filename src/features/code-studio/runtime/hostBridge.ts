@@ -86,7 +86,7 @@ interface JointWaiter {
 export interface HostBridgeOptions {
   sessionId: string;
   limits: Pick<ExecutionLimits, 'maxCommandsPerSecond' | 'maxWaitMs'> &
-    Partial<Pick<ExecutionLimits, 'maxPausedRequests' | 'maxSensorReadsPerSecond' | 'maxSensorSubscriptions' | 'maxSensorHz'>>;
+    Partial<Pick<ExecutionLimits, 'maxPausedRequests' | 'maxSensorReadsPerSecond' | 'maxSensorSubscriptions' | 'maxSensorHz' | 'maxEncoderResetsPerSecond'>>;
   now?: () => number;
   /** Phase 6: sends a host → worker message (sensor readings for subscriptions). */
   push?: (message: SensorPush) => void;
@@ -124,6 +124,7 @@ export class HostBridge {
         maxSensorReadsPerSecond: options.limits.maxSensorReadsPerSecond ?? DEFAULT_LIMITS.maxSensorReadsPerSecond,
         maxSensorSubscriptions: options.limits.maxSensorSubscriptions ?? DEFAULT_LIMITS.maxSensorSubscriptions,
         maxSensorHz: options.limits.maxSensorHz ?? DEFAULT_LIMITS.maxSensorHz,
+        maxEncoderResetsPerSecond: options.limits.maxEncoderResetsPerSecond ?? DEFAULT_LIMITS.maxEncoderResetsPerSecond,
       },
       push: options.push ?? (() => undefined),
       now: this.now,

@@ -50,7 +50,13 @@ From the two drive-wheel encoders: left and right rolled distance, mean distance
   - `linearAcceleration` — gravity **not** included. Reads 0 when the robot rests.
   - `specificForce` — what a real accelerometer measures: acceleration − gravity. Reads about **+9.81 m/s² up** when the robot rests, about 0 with gravity switched off.
 - **Frame:** `sensor` (default: vectors in the IMU's own axes) or `world`.
-- **First sample** after a start or reset has no previous velocity: it is `valid: false` with "Warming up…" instead of a spike. Histories restart on reset, rebuild and teleport.
+- **Warm-up (corrected 19 Nov 2026).** Acceleration is never invented:
+  - **Physics:** velocity is measured from the rigid body, so acceleration needs **2 samples**. Sample 1 is warming up; sample 2 is the first valid acceleration.
+  - **Kinematic:** velocity itself comes from two poses, so acceleration needs **3 samples**. Sample 1 has a pose only, sample 2 the first velocity, sample 3 the first valid acceleration.
+  - While warming up, the reading is `valid: false` with `error: "Warming up: acceleration needs N samples (k so far)."` and the acceleration fields are 0 placeholders, not measurements.
+  - The one exception is an **at-rest** sample. The manager requests one only while the kinematic engine is not stepping, so the robot provably stands still. Zero velocity and zero acceleration are then the actual kinematic state, so the reading is valid.
+  - `reset()` clears the previous pose, the previous velocity and the sample count on start, Reset, rebuild and jumps, so no spike can come from an old history.
+  - The kinematic engine changes speed instantly. The first moving sample after a standstill therefore shows one large acceleration (speed change ÷ one tick). That value is the kinematic motion itself, not an artifact of initialization.
 - Defaults: on the IMU part, or on the drive's root part; 60 Hz.
 
 ## Configuration and storage

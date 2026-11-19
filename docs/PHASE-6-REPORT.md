@@ -121,6 +121,50 @@ Browser sensors suite: default sensors listed; settings edit, refusal of an inva
 4. **Pause**: readings turn "Stale". **Resume**: "Active" again.
 5. In **Code**, run `console.log(await robotSensors.distance("front-distance").read())`.
 
-## 12. Recommended next phase
+## 12. Final corrections (19 Nov 2026)
+
+**A — Kinematic IMU warm-up.** The implementation was inspected:
+- Physics velocity is measured from the rigid body, so the first valid acceleration is sample 2.
+- Kinematic velocity comes from two poses, so it is sample 3.
+
+The behavior already invented no acceleration. The warm-up is now explicit:
+- A sample counter is kept and cleared by `reset()`, together with the previous pose and velocity.
+- The error message is exact: "Warming up: acceleration needs N samples (k so far).".
+- The acceleration fields are documented as zero placeholders while `valid` is false.
+- The at-rest exception (the kinematic engine is not stepping) is documented in the code and in `SENSOR-SIMULATION.md`.
+
+New tests (`imuWarmup.test.ts`, 8): the sample counts; kinematic samples 1, 2 and 3; no spike when sampling starts mid-motion; physics samples 1 and 2; reset and warm-up again; the at-rest measurement; kinematic driving; physics Reset with no spike afterwards.
+
+**B — Encoder reset rate protection.**
+- `sensor.resetEncoder` now has its own per-run limit, `maxEncoderResetsPerSecond` (default 10, configurable in `ExecutionLimits`).
+- Excess requests are rejected with a clear `SensorApiError`.
+- Reads are unaffected, and new runs start fresh.
+- See `docs/architecture/SENSOR-API.md`.
+
+New tests (`encoderResetLimit.test.ts`, 7): a normal reset; repeated resets; excessive resets with the exact error and unaffected reads; window recovery; a new run after an old one; stale-run and old-project rejection; the default limit; the limit inside a program; Stop with 30 pending resets and a subscription, then a clean next run.
+
+**Also fixed:** an inverted encoder reported −0 after a reset; it now reports 0.
+
+**Files modified:**
+- `src/features/sensors/imu/imuSensor.ts`
+- `src/features/sensors/api/sandboxSensorBridge.ts`
+- `src/features/sensors/core/sensorManager.ts`
+- `src/features/code-studio/runtime/executionLimits.ts`
+- `src/features/code-studio/runtime/hostBridge.ts`
+- `docs/architecture/SENSOR-SIMULATION.md`
+- `docs/architecture/SENSOR-API.md` (new)
+- this report
+
+**Correction gate (executed 19 Nov 2026, after both corrections):**
+
+| Command | Exit code | Result |
+| --- | --- | --- |
+| `npm run typecheck` | 0 | Pass |
+| `npm run lint` | 0 | Pass, 0 warnings |
+| `npx vitest run` | 0 | 319 passed, 0 failed, 0 skipped (36 files) |
+| `npm run build` | 0 | Pass |
+| `npm run test:e2e` | 0 | 7 suites, 125 / 125 steps (workspace 21, corrections 20, builder 21, control 17, code-studio 20, physics 15, sensors 11) |
+
+## 13. Recommended next phase
 
 An environment editor (C5) so users can build their own obstacle courses for the sensors, followed by camera simulation.
