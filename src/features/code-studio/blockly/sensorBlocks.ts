@@ -27,13 +27,13 @@ export function primeMissingSensors(serialized: string): string[] {
   return [...missingSensorIds];
 }
 
-const TYPE_NAME: Record<SensorType | 'any', string> = { distance: 'distance sensors', encoder: 'wheel encoders', imu: 'IMUs', any: 'sensors' };
+const TYPE_NAME: Record<SensorType | 'any', string> = { distance: 'distance sensors', encoder: 'wheel encoders', imu: 'IMUs', camera: 'cameras', any: 'sensors' };
 
 function sensorMenu(type: SensorType | 'any'): () => Blockly.MenuOption[] {
   return () => {
     const options: Blockly.MenuOption[] = useSceneStore
       .getState()
-      .sensors.filter((s) => type === 'any' || s.type === type)
+      .sensors.filter((s) => (type === 'any' ? s.type !== 'camera' : s.type === type))
       .map((s) => [`${s.name} (${s.id})${s.enabled ? '' : ' · off'}`, s.id]);
     for (const id of missingSensorIds) options.push([`⚠ missing sensor ${id}`, id]);
     if (options.length === 0) options.push([`(no ${TYPE_NAME[type]})`, NO_SENSOR]);
@@ -58,9 +58,15 @@ export const SENSOR_BLOCK_TYPES: Record<string, SensorType | 'any'> = {
   sensor_imu_acceleration: 'imu',
   sensor_wait_reading: 'any',
   sensor_is_valid: 'any',
+  // Phase 8: camera blocks (cameraBlocks.ts) use the same SENSOR field and checks.
+  camera_brightness: 'camera',
+  camera_color: 'camera',
+  camera_capture: 'camera',
+  camera_is_ready: 'camera',
+  camera_on_frame: 'camera',
 };
 
-function sensorField(type: SensorType | 'any'): Blockly.FieldDropdown {
+export function sensorField(type: SensorType | 'any'): Blockly.FieldDropdown {
   return new Blockly.FieldDropdown(sensorMenu(type));
 }
 

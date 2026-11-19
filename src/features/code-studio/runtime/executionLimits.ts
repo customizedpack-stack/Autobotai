@@ -33,6 +33,16 @@ export interface ExecutionLimits {
   maxSensorHz: number;
   /** Phase 6: encoder resets (a sensor-state change) per second per run, counted apart from reads. */
   maxEncoderResetsPerSecond: number;
+  /** Phase 8: camera captures per second per run. */
+  maxCameraCapturesPerSecond: number;
+  /** Phase 8: captures waiting at once per run. */
+  maxCameraPendingCaptures: number;
+  /** Phase 8: active camera subscriptions per run. */
+  maxCameraSubscriptions: number;
+  /** Phase 8: most frames per second delivered to one camera subscription. */
+  maxCameraHz: number;
+  /** Phase 8: image bytes per second per run (captures and subscription frames together). */
+  maxCameraBytesPerSecond: number;
 }
 
 export const DEFAULT_LIMITS: ExecutionLimits = {
@@ -51,6 +61,11 @@ export const DEFAULT_LIMITS: ExecutionLimits = {
   maxSensorSubscriptions: 8,
   maxSensorHz: 20,
   maxEncoderResetsPerSecond: 10,
+  maxCameraCapturesPerSecond: 5,
+  maxCameraPendingCaptures: 2,
+  maxCameraSubscriptions: 2,
+  maxCameraHz: 5,
+  maxCameraBytesPerSecond: 8_000_000,
 };
 
 /** Human-readable summary, shown in the UI and the docs. */

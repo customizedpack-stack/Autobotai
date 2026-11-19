@@ -72,6 +72,7 @@ const globalsCompletions: Completion[] = [
   { label: 'robotControl', type: 'namespace', info: 'Drive the robot and move joints (validated by the C2 Command Bus).' },
   { label: 'robot', type: 'namespace', info: 'Read joints and wait for them.' },
   { label: 'robotSensors', type: 'namespace', info: 'Read the robot\'s sensors: distance, wheel encoders, IMU (C3 Sensor Stream).' },
+  { label: 'robotCamera', type: 'namespace', info: 'Robot cameras: list, getState, capture an image, subscribe to frames (Phase 8). Simulated images only, no object recognition.' },
   { label: 'RobotCommandError', type: 'class', info: 'Thrown when the robot refuses a command (for example a joint target outside its limits).' },
 ];
 

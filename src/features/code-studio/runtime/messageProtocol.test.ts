@@ -36,11 +36,13 @@ describe('sandbox message protocol', () => {
       'joint.setTarget', 'joint.preview', 'joint.wait', 'joint.info', 'joints', 'setSpeedPercent', 'getState', 'wait',
       // Phase 6: read-only sensor operations (C3).
       'sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry',
+      // Phase 8: read-only camera operations (C3).
+      'camera.list', 'camera.state', 'camera.capture', 'camera.subscribe', 'camera.unsubscribe',
     ]);
   });
 
   it('rejects unknown message kinds', () => {
-    for (const kind of ['result', 'pause', 'sensor', 'eval', 'exec']) {
+    for (const kind of ['result', 'pause', 'sensor', 'camera', 'eval', 'exec']) {
       expect(parseWorkerMessage({ v: 1, kind, sessionId: S }, S).ok, kind).toBe(false);
     }
   });

@@ -7,6 +7,7 @@ import { log } from '../../../utils/logger';
 import type { ExecutionLimits } from './executionLimits';
 import { validateArgs, type SandboxArgs, type SandboxOp } from './messageProtocol';
 import { SandboxSensorBridge, type SensorOp, type SensorPush } from '../../sensors/api/sandboxSensorBridge';
+import { SandboxCameraBridge, type CameraOp, type CameraPush } from '../../camera/api/sandboxCameraBridge';
 import { DEFAULT_LIMITS } from './executionLimits';
 
 /**
@@ -38,10 +39,13 @@ export class BridgeError extends Error {
 }
 
 /** Read-only operations: answered at once, also while paused (they never move the robot). */
-const READ_ONLY_OPS = new Set<SandboxOp>(['getState', 'joints', 'joint.info', 'sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry']);
+const READ_ONLY_OPS = new Set<SandboxOp>(['getState', 'joints', 'joint.info', 'sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry', 'camera.list', 'camera.state', 'camera.capture', 'camera.subscribe', 'camera.unsubscribe']);
 
 /** Phase 6: sensor operations, handled by the run's SandboxSensorBridge (C3). */
 const SENSOR_OPS = new Set<SandboxOp>(['sensor.list', 'sensor.read', 'sensor.subscribe', 'sensor.unsubscribe', 'sensor.resetEncoder', 'sensor.odometry']);
+
+/** Phase 8: camera operations, handled by the run's SandboxCameraBridge (C3). */
+const CAMERA_OPS = new Set<SandboxOp>(['camera.list', 'camera.state', 'camera.capture', 'camera.subscribe', 'camera.unsubscribe']);
 
 /** Requests that would move the robot. A stop() during a pause supersedes the ones still held. */
 const MOTION_OPS = new Set<SandboxOp>(['drive.forward', 'drive.backward', 'drive.set', 'turn.left', 'turn.right', 'turn.set', 'joint.setTarget', 'joint.preview']);
@@ -86,10 +90,24 @@ interface JointWaiter {
 export interface HostBridgeOptions {
   sessionId: string;
   limits: Pick<ExecutionLimits, 'maxCommandsPerSecond' | 'maxWaitMs'> &
-    Partial<Pick<ExecutionLimits, 'maxPausedRequests' | 'maxSensorReadsPerSecond' | 'maxSensorSubscriptions' | 'maxSensorHz' | 'maxEncoderResetsPerSecond'>>;
+    Partial<
+      Pick<
+        ExecutionLimits,
+        | 'maxPausedRequests'
+        | 'maxSensorReadsPerSecond'
+        | 'maxSensorSubscriptions'
+        | 'maxSensorHz'
+        | 'maxEncoderResetsPerSecond'
+        | 'maxCameraCapturesPerSecond'
+        | 'maxCameraPendingCaptures'
+        | 'maxCameraSubscriptions'
+        | 'maxCameraHz'
+        | 'maxCameraBytesPerSecond'
+      >
+    >;
   now?: () => number;
-  /** Phase 6: sends a host → worker message (sensor readings for subscriptions). */
-  push?: (message: SensorPush) => void;
+  /** Phase 6: sends a host → worker message (sensor readings, Phase 8 camera frames, for subscriptions). */
+  push?: (message: SensorPush | CameraPush) => void;
 }
 
 export class HostBridge {
@@ -112,6 +130,8 @@ export class HostBridge {
   private readonly maxPausedRequests: number;
   /** Phase 6: this run's sensor access (reads and subscriptions). */
   readonly sensors: SandboxSensorBridge;
+  /** Phase 8: this run's camera access (captures and subscriptions). */
+  readonly cameras: SandboxCameraBridge;
 
   constructor(options: HostBridgeOptions) {
     this.sessionId = options.sessionId;
@@ -125,6 +145,18 @@ export class HostBridge {
         maxSensorSubscriptions: options.limits.maxSensorSubscriptions ?? DEFAULT_LIMITS.maxSensorSubscriptions,
         maxSensorHz: options.limits.maxSensorHz ?? DEFAULT_LIMITS.maxSensorHz,
         maxEncoderResetsPerSecond: options.limits.maxEncoderResetsPerSecond ?? DEFAULT_LIMITS.maxEncoderResetsPerSecond,
+      },
+      push: options.push ?? (() => undefined),
+      now: this.now,
+    });
+    this.cameras = new SandboxCameraBridge({
+      sessionId: this.sessionId,
+      limits: {
+        maxCameraCapturesPerSecond: options.limits.maxCameraCapturesPerSecond ?? DEFAULT_LIMITS.maxCameraCapturesPerSecond,
+        maxCameraPendingCaptures: options.limits.maxCameraPendingCaptures ?? DEFAULT_LIMITS.maxCameraPendingCaptures,
+        maxCameraSubscriptions: options.limits.maxCameraSubscriptions ?? DEFAULT_LIMITS.maxCameraSubscriptions,
+        maxCameraHz: options.limits.maxCameraHz ?? DEFAULT_LIMITS.maxCameraHz,
+        maxCameraBytesPerSecond: options.limits.maxCameraBytesPerSecond ?? DEFAULT_LIMITS.maxCameraBytesPerSecond,
       },
       push: options.push ?? (() => undefined),
       now: this.now,
@@ -209,6 +241,7 @@ export class HostBridge {
       return Promise.reject(new BridgeError(`Too many robot commands: the limit is ${this.limits.maxCommandsPerSecond} per second. Add a wait between commands.`));
     }
     if (SENSOR_OPS.has(op)) return this.sensors.handle(op as SensorOp, args);
+    if (CAMERA_OPS.has(op)) return this.cameras.handle(op as CameraOp, args);
     const n = (key: string) => args[key] as number | undefined;
     switch (op) {
       case 'drive.forward':
@@ -429,6 +462,7 @@ export class HostBridge {
       pending.remainingMs = Math.max(0, pending.remainingMs - (now - pending.startedAt));
     }
     this.sensors.pause();
+    this.cameras.pause();
     robotControl.stop('code');
   }
 
@@ -465,6 +499,7 @@ export class HostBridge {
     for (const item of held) this.execute(item.op, item.args).then(item.resolve, item.reject);
     this.checkJointWaiters();
     this.sensors.resume();
+    this.cameras.resume();
   }
 
   private activeMotions(): Motion[] {
@@ -485,5 +520,6 @@ export class HostBridge {
     this.joints.clear();
     for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
     this.sensors.dispose();
+    this.cameras.dispose();
   }
 }

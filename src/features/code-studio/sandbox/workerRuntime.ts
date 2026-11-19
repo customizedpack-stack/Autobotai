@@ -6,7 +6,7 @@
  *
  * What it does:
  * 1. Removes network, storage and code-loading APIs from the worker scope.
- * 2. Defines the program API as read-only globals: robotControl, robotSensors (Phase 6),
+ * 2. Defines the program API as read-only globals: robotControl, robotSensors (Phase 6), robotCamera (Phase 8),
  *    robot, wait, print, console, RobotCommandError, plus tracked setTimeout / setInterval.
  * 3. Turns every API call into an allowlisted message for the host.
  * 4. Supports cooperative pause (__checkpoint) and reports done / fail.
@@ -61,6 +61,8 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
   let timerSeq = 0;
   /** Phase 6: callbacks of active sensor subscriptions (subscription id → callback). */
   const sensorCallbacks = new Map<number, (reading: unknown) => unknown>();
+  /** Phase 8: callbacks of active camera subscriptions (subscription id → callback). */
+  const cameraCallbacks = new Map<number, (frame: unknown) => unknown>();
 
   const send = (kind: string, extra: Record<string, unknown>) => {
     if (finished && kind !== 'done' && kind !== 'fail') return;
@@ -142,7 +144,7 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
   };
 
   scope.addEventListener('message', (event) => {
-    const data = event.data as { v?: number; kind?: string; id?: number; ok?: boolean; value?: unknown; error?: string; subscriptionId?: number; reading?: unknown } | undefined;
+    const data = event.data as { v?: number; kind?: string; id?: number; ok?: boolean; value?: unknown; error?: string; subscriptionId?: number; reading?: unknown; frame?: unknown } | undefined;
     if (!data || data.v !== 1) return;
     if (data.kind === 'result' && typeof data.id === 'number') {
       const entry = pending.get(data.id);
@@ -157,6 +159,15 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
       if (!callback || paused || finished) return;
       try {
         const result = callback(data.reading) as { then?: unknown } | undefined;
+        if (result && typeof result.then === 'function') (result as Promise<unknown>).then(undefined, (error: unknown) => fail(error));
+      } catch (error) {
+        fail(error);
+      }
+    } else if (data.kind === 'camera' && typeof data.subscriptionId === 'number') {
+      const callback = cameraCallbacks.get(data.subscriptionId);
+      if (!callback || paused || finished) return;
+      try {
+        const result = callback(data.frame) as { then?: unknown } | undefined;
         if (result && typeof result.then === 'function') (result as Promise<unknown>).then(undefined, (error: unknown) => fail(error));
       } catch (error) {
         fail(error);
@@ -395,6 +406,53 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
     },
   });
 
+  // ── Phase 8: robotCamera. Images come from the host's camera API (C3) as plain data copies. ──
+  const cameraSubscriptions = new Set<{ unsubscribe: () => Promise<boolean> }>();
+  const robotCamera = Object.freeze({
+    /** Every camera: id, name, enabled, width, height, hFov, vFov (rad), near, far, rateHz. */
+    list: () => call('camera.list', {}),
+    /** Status of one camera: idle, live, disabled or error; frames, fps, rendererReady. */
+    getState: (cameraId: unknown) => call('camera.state', { cameraId: String(cameraId) }),
+    /**
+     * One new image (asynchronous: the simulation keeps running while it is made).
+     * options.format: "rgba" (default, 4 bytes per pixel), "gray" (1 byte per pixel) or "none" (numbers only).
+     * Returns { width, height, format, data, brightness (0 … 100), meanColor { r, g, b }, frame, timestamp }.
+     */
+    capture: (cameraId: unknown, options?: unknown) => call('camera.capture', { cameraId: String(cameraId), ...pick(options, ['format']) }),
+    /** Receive images as they are made, at most options.maxHz per second (default 2). */
+    subscribe: async (cameraId: unknown, callback: unknown, options?: unknown) => {
+      if (typeof callback !== 'function') throw new TypeError('subscribe needs a function, for example robotCamera.subscribe("front-camera", (frame) => console.log(frame.brightness)).');
+      const result = (await call('camera.subscribe', { cameraId: String(cameraId), ...pick(options, ['maxHz', 'format']) })) as { subscriptionId: number; maxHz: number };
+      const subscriptionId = result.subscriptionId;
+      let active = true;
+      cameraCallbacks.set(subscriptionId, callback as (frame: unknown) => unknown);
+      // An active subscription keeps the program running until it is unsubscribed.
+      outstanding += 1;
+      const handle = Object.freeze({
+        id: subscriptionId,
+        maxHz: result.maxHz,
+        unsubscribe: async () => {
+          if (!active) return false;
+          active = false;
+          cameraCallbacks.delete(subscriptionId);
+          cameraSubscriptions.delete(handle);
+          outstanding -= 1;
+          await call('camera.unsubscribe', { subscriptionId });
+          checkDone();
+          return true;
+        },
+      });
+      cameraSubscriptions.add(handle);
+      return handle;
+    },
+    /** End every camera subscription of this program. Returns how many were ended. */
+    unsubscribeAll: async () => {
+      const all = [...cameraSubscriptions];
+      for (const sub of all) await sub.unsubscribe();
+      return all.length;
+    },
+  });
+
   const robot = Object.freeze({
     joints: () => call('joints', {}),
     jointInfo: (jointId: unknown) => call('joint.info', { jointId: String(jointId) }),
@@ -435,6 +493,7 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
   const globals: Record<string, unknown> = {
     robotControl,
     robotSensors,
+    robotCamera,
     robot,
     wait,
     print: programConsole.log,

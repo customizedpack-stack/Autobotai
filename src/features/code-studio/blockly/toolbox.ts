@@ -1,5 +1,6 @@
 import { COLORS } from './robotBlocks';
 import { SENSOR_COLOR } from './sensorBlocks';
+import { CAMERA_BLOCK_TYPES, CAMERA_COLOR } from './cameraBlocks';
 
 /**
  * The Blockly toolbox: the categories from the Phase 4 brief.
@@ -80,6 +81,21 @@ export const TOOLBOX = {
     },
     {
       kind: 'category',
+      name: 'Camera',
+      colour: CAMERA_COLOR,
+      contents: [
+        block('camera_brightness'),
+        block('camera_color'),
+        block('camera_is_ready'),
+        block('camera_count'),
+        block('camera_capture'),
+        block('camera_on_frame', { HZ: num(2) }),
+        block('camera_frame_value'),
+        block('camera_unsubscribe_all'),
+      ],
+    },
+    {
+      kind: 'category',
       name: 'Timing',
       colour: COLORS.timing,
       contents: [block('robot_wait', { MS: num(1000) }), block('robot_wait_seconds', { SECONDS: num(1) }), block('robot_every', { MS: num(500) })],
@@ -130,4 +146,6 @@ export const SUPPORTED_BLOCK_TYPES = new Set<string>([
   'sensor_read_distance', 'sensor_distance_m', 'sensor_obstacle', 'sensor_obstacle_within', 'sensor_compare_distance',
   'sensor_wait_until_distance', 'sensor_read_encoder', 'sensor_encoder_value', 'sensor_encoder_reset', 'sensor_read_imu',
   'sensor_imu_orientation', 'sensor_imu_angular_velocity', 'sensor_imu_acceleration', 'sensor_wait_reading', 'sensor_is_valid',
+  // Phase 8: Camera
+  ...CAMERA_BLOCK_TYPES,
 ]);
