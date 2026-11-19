@@ -4,6 +4,7 @@ import { PROJECT_SCHEMA_VERSION, type RobotCategory, type RobotProject } from '.
 import type { RobotActuator, RobotController } from '../../types/actuator';
 import type { RobotJoint } from '../../types/joint';
 import { suggestDifferentialDrive } from './drive';
+import { repairAndSuggestDrive } from './driveRepair';
 import type { SceneObject } from '../../types/scene';
 import { validateRobotModel } from './validation';
 
@@ -98,14 +99,28 @@ export function autoConfigureDrive(
 
 /** v2 -> v3. Pure; returns a new object. */
 function migrateV2toV3(raw: Loose, warnings: string[]): Loose {
-  const objects = (Array.isArray(raw.objects) ? raw.objects : []).filter(isObject).map((o, i) => normalizeObject(o, i, warnings));
-  const joints = (Array.isArray(raw.joints) ? raw.joints : []).filter(isObject) as unknown as RobotJoint[];
+  let objects = (Array.isArray(raw.objects) ? raw.objects : []).filter(isObject).map((o, i) => normalizeObject(o, i, warnings));
+  let joints = (Array.isArray(raw.joints) ? raw.joints : []).filter(isObject) as unknown as RobotJoint[];
   let drive = { actuators: [] as RobotActuator[], controllers: [] as RobotController[] };
   if (raw.templateId === 'explorer-bot') {
     drive = autoConfigureDrive(objects, joints);
-    if (drive.controllers.length === 0) warnings.push('Explorer Bot drive could not be configured automatically; use "Set up differential drive".');
+    if (drive.controllers.length === 0) {
+      // An Explorer Bot saved in Phase 1 (v1) has no hierarchy and no joints. When the robot can
+      // be identified safely, attach its parts and add the two wheel joints, then set up the
+      // drive (all or nothing). Otherwise it stays unchanged and the guided setup explains why.
+      const plan = repairAndSuggestDrive({ objects, joints, actuators: [], controllers: [] });
+      if (plan.ok) {
+        objects = plan.model.objects;
+        joints = plan.model.joints;
+        drive = { actuators: plan.suggestion.actuators, controllers: [plan.suggestion.controller] };
+        warnings.push(`Explorer Bot was saved before joints existed and was upgraded: ${[...plan.summary, 'Set up the differential drive with 2 DC motors.'].join(' ')}`);
+        for (const w of plan.warnings) warnings.push(w);
+      } else {
+        warnings.push('Explorer Bot drive could not be configured automatically; use "Set up differential drive".');
+      }
+    }
   }
-  return { ...raw, actuators: drive.actuators, controllers: drive.controllers, schemaVersion: 3 };
+  return { ...raw, objects, joints, actuators: drive.actuators, controllers: drive.controllers, schemaVersion: 3 };
 }
 
 /** Migrate any stored project to the current schema. Throws only if `raw` is not an object. */

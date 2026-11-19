@@ -8,7 +8,7 @@ import { defaultSensorsFor, SENSOR_TYPE_LABEL, validateSensor } from '../sensors
 import { log } from '../../utils/logger';
 import { materializeObject } from '../projects/materialize';
 import { actuatorTypeInfo } from './actuators';
-import { suggestDifferentialDrive } from './drive';
+import { repairAndSuggestDrive } from './driveRepair';
 import { jointTypeLabel } from './joints';
 import * as ops from './operations';
 import { indexObjects, localFromWorld, transformToMatrix } from './transforms';
@@ -196,15 +196,25 @@ export const robotModel = {
 
   // ── Controllers (schema v3) ────────────────────────────────────────────────
 
-  /** Detect two wheel joints and add a differential-drive controller with DC motors. */
+  /**
+   * Detect two wheel joints and add a differential-drive controller with DC motors.
+   * Robots saved before joints existed (Phase 1) are first repaired safely: loose parts are
+   * attached to the chassis and the two wheel joints are added (see driveRepair.ts). The
+   * repair and the drive are ONE undo step, and nothing is changed when any part fails.
+   */
   setUpDifferentialDrive(): CommandResult<RobotController> {
     const current = model();
     if (current.controllers.some((c) => c.type === 'differentialDrive')) return reject('Set up drive', ['A differential-drive controller already exists.']);
-    const suggestion = suggestDifferentialDrive(current.objects, current.joints, current.actuators);
-    if (!suggestion.ok) return reject('Set up drive', suggestion.errors);
-    const result = ops.addController(current, suggestion.controller, suggestion.actuators);
+    const plan = repairAndSuggestDrive(current);
+    if (!plan.ok) return reject('Set up drive', plan.errors);
+    const { suggestion } = plan;
+    const result = ops.addController(plan.model, suggestion.controller, suggestion.actuators);
     if (!result.ok) return reject('Set up drive', result.errors);
-    apply('Set up differential drive', result.model);
+    apply(plan.repaired ? 'Repair robot structure and set up differential drive' : 'Set up differential drive', result.model);
+    if (plan.repaired) {
+      for (const line of plan.summary) log.info('scene', `Drive repair: ${line}`);
+      for (const line of plan.warnings) log.warning('scene', `Drive repair: ${line}`);
+    }
     for (const a of suggestion.actuators) bus.publish('robotModel.actuatorCreated', { actuatorId: a.id, type: a.type, jointId: a.jointId });
     bus.publish('robotModel.controllerChanged', { controllerId: result.controller.id, change: 'added' });
     log.success('scene', `Set up differential drive with ${suggestion.actuators.length} DC motor(s).`);

@@ -1,5 +1,6 @@
+import { DriveSetupGuide } from './DriveSetupGuide';
 import { useMemo } from 'react';
-import { Trash2, Wrench } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { useSceneStore } from '../../stores/sceneStore';
 import type { DifferentialDriveController } from '../../types/actuator';
@@ -117,12 +118,7 @@ export function ControllerSection() {
       {controller ? (
         <DriveEditor controller={controller} />
       ) : (
-        <>
-          <p className="text-xs text-muted">No drive controller. A differential drive needs two wheels on revolute joints and two motor parts.</p>
-          <Button size="sm" className="mt-2" icon={<Wrench size={13} />} onClick={() => robotModel.setUpDifferentialDrive()} data-testid="setup-drive-build">
-            Set up differential drive
-          </Button>
-        </>
+        <DriveSetupGuide testId="setup-drive-build" />
       )}
     </section>
   );

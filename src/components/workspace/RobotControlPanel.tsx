@@ -1,5 +1,5 @@
 import { useMemo, type PointerEvent, type ReactNode } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Gauge, MapPinned, OctagonX, RotateCcw, Wrench } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Gauge, MapPinned, OctagonX, RotateCcw } from 'lucide-react';
 import { checkDriveReady } from '../../features/controls/commands';
 import { commandContext } from '../../features/controls/commandBus';
 import { applyPoseToDesign } from '../../features/controls/controlSession';
@@ -16,6 +16,7 @@ import { Button } from '../common/Button';
 import { JointPreview } from './JointPreview';
 import { SimulationPanel } from '../../features/physics/components/SimulationPanel';
 import { SensorPanel } from '../../features/sensors/components/SensorPanel';
+import { DriveSetupGuide } from '../../features/inspector/DriveSetupGuide';
 import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -130,10 +131,7 @@ export function RobotControlPanel({ variant = 'control' }: { variant?: 'control'
 
       {!controller ? (
         <Section title="Drive setup">
-          <p className="text-xs text-muted">This robot has no drive controller yet. Two wheels with revolute joints and two motor parts are needed.</p>
-          <Button size="sm" className="mt-2" icon={<Wrench size={13} />} onClick={() => robotModel.setUpDifferentialDrive()} data-testid="setup-drive">
-            Set up differential drive
-          </Button>
+          <DriveSetupGuide testId="setup-drive" />
         </Section>
       ) : (
         <Section title="Drive">
