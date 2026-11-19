@@ -1,5 +1,6 @@
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Inspector } from '../../features/inspector/Inspector';
+import { EnvironmentInspector } from '../../features/environment/components/EnvironmentInspector';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { RobotControlPanel } from './RobotControlPanel';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
@@ -9,7 +10,8 @@ export function RightPanel({ overlay = false }: { overlay?: boolean }) {
   const collapsed = useWorkspaceStore((s) => s.collapsed.right);
   const togglePanel = useWorkspaceStore((s) => s.togglePanel);
   const mode = useRobotStateStore((s) => s.mode);
-  const control = mode !== 'build';
+  const environment = mode === 'environment';
+  const control = mode === 'control' || mode === 'code';
   const title = mode === 'code' ? 'Robot Status' : 'Robot Control';
 
   const rail = (
@@ -25,13 +27,13 @@ export function RightPanel({ overlay = false }: { overlay?: boolean }) {
   const panel = (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l border-line bg-panel" data-testid="right-panel" aria-label="Properties panel">
       <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
-        <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">{control ? title : 'Properties'}</span>
+        <span className="text-[11px] font-semibold tracking-wider text-muted uppercase">{environment ? 'Environment Inspector' : control ? title : 'Properties'}</span>
         <IconButton label="Collapse properties panel" onClick={() => togglePanel('right')}>
           <PanelRightClose size={15} />
         </IconButton>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {control ? <RobotControlPanel variant={mode === 'code' ? 'code' : 'control'} /> : <Inspector />}
+        {environment ? <EnvironmentInspector /> : control ? <RobotControlPanel variant={mode === 'code' ? 'code' : 'control'} /> : <Inspector />}
       </div>
     </aside>
   );

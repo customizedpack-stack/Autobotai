@@ -1,7 +1,7 @@
 import type { Vec3 } from '../../../types/scene';
 import { multiplyQuat, rotateVec } from '../../physics/engine/quat';
 import type { PhysicsController } from '../../physics/integration/physicsController';
-import { EARTH_GRAVITY, SENSOR_RAY_GROUPS } from '../../physics/physicsConfig';
+import { EARTH_GRAVITY, SENSOR_RAY_GROUPS, SENSOR_RAY_GROUPS_WITH_GROUND } from '../../physics/physicsConfig';
 import type { SensorSource } from '../core/sensorTypes';
 
 /**
@@ -55,7 +55,8 @@ export function createPhysicsSensorSource(controller: PhysicsController, gravity
       const world = controller.physicsWorld;
       if (!world || world.isDisposed) return null;
       const ray = new world.rapier.Ray({ x: origin[0], y: origin[1], z: origin[2] }, { x: direction[0], y: direction[1], z: direction[2] });
-      const hit = world.world.castRayAndGetNormal(ray, maxDistance, true, undefined, SENSOR_RAY_GROUPS, ignoreGround ? world.ground : undefined);
+      // Ground planes and the default floor are in their own group: ignoreGround leaves that group out.
+      const hit = world.world.castRayAndGetNormal(ray, maxDistance, true, undefined, ignoreGround ? SENSOR_RAY_GROUPS : SENSOR_RAY_GROUPS_WITH_GROUND);
       if (!hit) return null;
       const d = hit.timeOfImpact;
       return { distance: d, point: [origin[0] + direction[0] * d, origin[1] + direction[1] * d, origin[2] + direction[2] * d], normal: v3(hit.normal) };

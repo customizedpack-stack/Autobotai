@@ -3,7 +3,8 @@ import { Atom, Bug, Pause, Play, RotateCcw, Square, Zap } from 'lucide-react';
 import { Button } from '../../../components/common/Button';
 import { robotControl } from '../../controls/robotControlApi';
 import { cn } from '../../../utils/cn';
-import { ENVIRONMENTS, type EnvironmentId } from '../engine/environments';
+import { environmentList, useEnvironmentStore } from '../../environment/store/environmentStore';
+import { editCurrentEnvironment } from '../../environment/environmentSession';
 import { pauseSimulation, resumeSimulation, selectEngine, setDebugView, setEnvironment, setGravityEnabled, startSimulation, stopSimulation } from '../simulation/simulationManager';
 import { useSimulationStore, type SimulationEngine } from '../simulation/simulationStore';
 
@@ -48,6 +49,8 @@ export function SimulationPanel() {
   const settings = useSimulationStore((s) => s.settings);
   const info = useSimulationStore((s) => s.info);
   const error = useSimulationStore((s) => s.error);
+  // Re-render when saved environments change (the list in the environment menu).
+  useEnvironmentStore((s) => s.environments);
   const physics = engine === 'physics';
   const active = state === 'running' || state === 'paused';
 
@@ -116,17 +119,21 @@ export function SimulationPanel() {
               Environment
               <select
                 value={settings.environment}
-                onChange={(e) => setEnvironment(e.target.value as EnvironmentId)}
+                onChange={(e) => setEnvironment(e.target.value)}
                 data-testid="sim-environment"
                 className="h-6 rounded-md border border-line bg-raised px-1.5 text-[11px] text-ink"
               >
-                {ENVIRONMENTS.map((env) => (
+                {environmentList().map((env) => (
                   <option key={env.id} value={env.id}>
                     {env.name}
+                    {env.template ? '' : ' (mine)'}
                   </option>
                 ))}
               </select>
             </label>
+            <button type="button" className="text-[11px] text-accent hover:underline" onClick={editCurrentEnvironment} data-testid="sim-edit-environment">
+              Edit this environment →
+            </button>
           </div>
 
           {active && (

@@ -4,7 +4,7 @@ import { useSceneStore } from '../../stores/sceneStore';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { cn } from '../../utils/cn';
 
-const MODE_LABEL = { build: 'Build Mode', control: 'Control Mode', code: 'Code Studio' } as const;
+const MODE_LABEL = { build: 'Build Mode', control: 'Control Mode', code: 'Code Studio', environment: 'Environment Editor' } as const;
 
 export function StatusBar() {
   const objects = useSceneStore((s) => s.objects);
@@ -35,7 +35,7 @@ export function StatusBar() {
         <span data-testid="status-engine">{mode === 'build' ? 'Simulation: off in Build Mode' : engine === 'physics' ? `Physics engine (Rapier) · ${simState}` : 'Kinematic engine'}</span>
       </span>
       <span className={cn(dirty ? 'text-warn' : 'text-muted')}>{dirty ? 'Draft: unsaved' : 'Draft: saved locally'}</span>
-      <span className="hidden text-faint sm:inline">Phase 6</span>
+      <span className="hidden text-faint sm:inline">Phase 7</span>
     </footer>
   );
 }

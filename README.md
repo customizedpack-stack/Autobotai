@@ -2,7 +2,17 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 6 — Sensor Simulation** (on top of Phases 1–5). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), and now give it **sensors**: a distance sensor that casts real rays, wheel encoders and an IMU. Sensor readings appear in the workspace and in your programs (see `docs/`).
+**Current status: Phase 7 — Environment Editor** (on top of Phases 1–6). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), and now **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles (see `docs/`).
+
+## Environment Editor
+
+1. Open a robot and click **Environment** in the top bar.
+2. Start from **Empty Environment** or a template (Basic Test Arena, Obstacle Course, Ramp Test). Editing a template makes your own copy.
+3. Add objects from the **Library** tab. Select one to move or rotate it with the gizmo, or type exact values in the inspector (size, position, rotation, static or dynamic, mass, friction, bounciness, collision). Ctrl+Z undoes, Ctrl+D duplicates, Delete removes.
+4. Click **Save**, then **Test Environment**. The robot starts in the Physics engine inside your environment: walls stop it, ramps tilt it, and the distance sensor sees your objects. **Edit this environment** brings you back.
+5. Your environments are kept in this browser and can be reused by any robot.
+
+Details: `docs/architecture/PHASE-7-ENVIRONMENT-EDITOR.md` and `docs/architecture/ENVIRONMENT-PHYSICS-INTEGRATION.md`.
 
 ## Sensors
 
@@ -16,7 +26,7 @@ Details: `docs/architecture/SENSOR-SIMULATION.md` and `docs/architecture/C3-SENS
 
 1. Open a robot and click **Simulate** in the top bar (or **Control**, then choose **Physics** in the Simulation panel on the right).
 2. The banner at the bottom of the 3D view shows which engine moves the robot: "Kinematic Simulation — No Physics" or "Physics Simulation — Running".
-3. Use **Start**, **Pause**, **Resume**, **Stop** and **Reset**. Switch **Gravity** off and on, pick an **Environment** (empty floor or obstacle course), and turn on **Debug view** to see collision shapes, joints, velocities and contacts.
+3. Use **Start**, **Pause**, **Resume**, **Stop** and **Reset**. Switch **Gravity** off and on, pick an **Environment** (a template or one you built), and turn on **Debug view** to see collision shapes, joints, velocities and contacts.
 4. Drive with the keys, or run a Code Studio program. Pausing the simulation pauses the program.
 5. In Build Mode, the **Physics** section of the inspector sets mass, friction, bounciness and collision for each part (undoable, saved with the project). Empty values use sensible defaults.
 
@@ -87,7 +97,7 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor (needs `npm run build` first and Chrome installed) |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology
@@ -119,10 +129,10 @@ src/
   stores/         Zustand stores (project, scene + history, robot runtime state, selection, workspace, viewport, console, settings)
   types/          Shared TypeScript model (robot project, scene objects, console, viewport)
   hooks/ utils/   Shortcuts and helpers
-docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3, Code Studio and its sandbox, physics engine and integration, sensors and the C3 Sensor Stream) and test screenshots
+docs/             Phase reports, architecture notes (C1 and C2 connectors, schemas v2 and v3, Code Studio and its sandbox, physics engine and integration, sensors and the C3 Sensor Stream, the Environment Editor and its physics integration) and test screenshots
 tests/e2e/        Browser test suites (one per phase)
 ```
 
 ## Where your work is saved
 
-Projects are saved as **drafts in your browser** (localStorage). Older drafts (Phase 1 and Phase 2) are upgraded to the current format (schema v3) automatically when you open the app. The driven position of a robot is never saved unless you click **Apply pose**. Code Studio programs are saved per robot project in the same browser (key `arai.programs.v1`). They stay on that computer and browser only. Cloud accounts and saving arrive in Phase 8.
+Projects are saved as **drafts in your browser** (localStorage). Older drafts (Phase 1 and Phase 2) are upgraded to the current format (schema v3) automatically when you open the app. The driven position of a robot is never saved unless you click **Apply pose**. Code Studio programs are saved per robot project in the same browser (key `arai.programs.v1`). Environments are saved separately (key `arai.environments.v1`); a project only remembers which environment it uses. They stay on that computer and browser only. Cloud accounts and saving arrive in Phase 8.

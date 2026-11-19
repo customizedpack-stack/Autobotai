@@ -2,12 +2,14 @@ import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { useRobotStateStore } from '../../stores/robotStateStore';
+import { canDrive, useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import type { Vec3 } from '../../types/scene';
 import { useViewportStore } from '../../stores/viewportStore';
 import { worldSceneBounds } from '../robot-model/transforms';
 import { cameraPosition, classifyView, framingDistance } from './cameraPresets';
+import { resolveEnvironment, useEnvironmentStore } from '../environment/store/environmentStore';
+import { useSimulationStore } from '../physics/simulation/simulationStore';
 
 interface Animation {
   fromPos: Vector3;
@@ -26,6 +28,31 @@ const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 function liveObjects() {
   const { rootPoses } = useRobotStateStore.getState();
   return useSceneStore.getState().objects.map((o) => (rootPoses[o.id] ? { ...o, transform: rootPoses[o.id]! } : o));
+}
+
+/**
+ * Phase 7: the camera frames the environment too — in the Environment Editor (its
+ * draft) and in Test Mode (the saved environment the physics engine runs). Ground
+ * planes are left out so a large floor does not push the camera far away.
+ */
+function sceneBounds(): { center: Vec3; radius: number } {
+  const robot = worldSceneBounds(liveObjects());
+  const mode = useRobotStateStore.getState().mode;
+  const physics = useSimulationStore.getState().engine === 'physics';
+  const env = mode === 'environment' ? useEnvironmentStore.getState().draft : canDrive(mode) && physics ? resolveEnvironment(useSimulationStore.getState().settings.environment) : null;
+  const solids = env?.objects.filter((o) => o.kind !== 'ground') ?? [];
+  if (solids.length === 0) return robot;
+  const min: Vec3 = [robot.center[0] - robot.radius, robot.center[1] - robot.radius, robot.center[2] - robot.radius];
+  const max: Vec3 = [robot.center[0] + robot.radius, robot.center[1] + robot.radius, robot.center[2] + robot.radius];
+  for (const o of solids) {
+    const r = Math.hypot(o.size[0], o.size[1], o.size[2]) / 2;
+    for (let i = 0; i < 3; i++) {
+      min[i] = Math.min(min[i]!, o.position[i]! - r);
+      max[i] = Math.max(max[i]!, o.position[i]! + r);
+    }
+  }
+  const center: Vec3 = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
+  return { center, radius: Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2 };
 }
 
 /**
@@ -54,7 +81,7 @@ export function CameraRig() {
   // Preset view (Perspective, Front, Back, Left, Right, Top).
   useEffect(() => {
     if (!viewRequest || !controls) return;
-    const bounds = worldSceneBounds(liveObjects());
+    const bounds = sceneBounds();
     const distance = framingDistance(bounds.radius, fov);
     const pos = cameraPosition(bounds.center, viewRequest.view, distance);
     start(new Vector3(...pos), new Vector3(...bounds.center));
@@ -64,7 +91,7 @@ export function CameraRig() {
   // Frame all objects, keeping the current viewing direction.
   useEffect(() => {
     if (frameRequest === 0 || !controls) return;
-    const bounds = worldSceneBounds(liveObjects());
+    const bounds = sceneBounds();
     const target = new Vector3(...bounds.center);
     const direction = camera.position.clone().sub(controls.target);
     if (direction.lengthSq() < 1e-6) direction.set(0.62, 0.48, 0.62);
@@ -89,7 +116,7 @@ export function CameraRig() {
 
     // Follow the driven robot: shift camera and target by the robot's movement.
     const robot = useRobotStateStore.getState();
-    const followId = robot.mode !== 'build' && useViewportStore.getState().followRobot ? Object.keys(robot.rootPoses)[0] : undefined;
+    const followId = canDrive(robot.mode) && useViewportStore.getState().followRobot ? Object.keys(robot.rootPoses)[0] : undefined;
     const followPos = followId ? robot.rootPoses[followId]!.position : null;
     if (followPos && followed.current && !anim.current) {
       const d = new Vector3(followPos[0] - followed.current[0], 0, followPos[2] - followed.current[2]);

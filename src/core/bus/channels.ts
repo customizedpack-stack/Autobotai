@@ -59,7 +59,7 @@ export interface BusChannels {
   'command.accepted': { command: RobotCommand };
   'command.rejected': { command: RobotCommand; errors: string[] };
   'command.status': { commandId: string; type: CommandType; status: CommandStatus; detail?: string };
-  'robot.modeChanged': { mode: 'build' | 'control' | 'code' };
+  'robot.modeChanged': { mode: 'build' | 'control' | 'code' | 'environment' };
 
   // ── Code Studio (Phase 4). Programs move the robot only through C2 (source 'code'). ──
   'codeStudio.programChanged': { programId: string; projectId: string; change: 'created' | 'saved' | 'renamed' | 'deleted' };
@@ -69,6 +69,16 @@ export interface BusChannels {
   // ── Physics simulation (Phase 5) ──
   /** Engine choice or simulation state changed. */
   'simulation.changed': { engine: SimulationEngine; state: SimulationRunState; previousEngine: SimulationEngine; previousState: SimulationRunState; reason?: string };
+
+  // ── C5 Environment Connector (Phase 7) ──
+  /** A saved environment was created, saved, or deleted. */
+  'environment.changed': { environmentId: string; change: 'created' | 'saved' | 'deleted' };
+  /** An environment was opened in the Environment Editor. */
+  'environment.opened': { environmentId: string; name: string };
+  /** One undoable edit of the open environment (not published per physics frame). */
+  'environment.edited': { environmentId: string; reason: string; objectCount: number };
+  /** The environment the physics simulation uses changed. */
+  'simulation.environmentChanged': { environmentId: string };
 
   // ── C3 Sensor Stream (Phase 6): lifecycle only. Readings flow through the stream itself, not the bus. ──
   /** The stream started, paused, resumed or stopped. */
@@ -102,7 +112,7 @@ export const FUTURE_CONNECTORS: readonly FutureConnector[] = [
   { code: 'C2', name: 'Command Bus', carries: 'Commands: drive, turn, setJointTarget, stop, reset', phase: 'Active (Phase 3)' },
   { code: 'C3', name: 'Sensor Stream', carries: 'Distance, wheel encoder and IMU readings (camera and lidar later)', phase: 'Active (Phase 6)' },
   { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 (runtime state via robotStateStore)' },
-  { code: 'C5', name: 'Environment Connector', carries: 'Floors, walls, obstacles, zones', phase: 'Phase 7 / I' },
+  { code: 'C5', name: 'Environment Connector', carries: 'Ground, walls, boxes, platforms, ramps, obstacles', phase: 'Active (Phase 7)' },
   { code: 'C6', name: 'Project Storage Connector', carries: 'Cloud save, load and versions', phase: 'Phase 8 / H' },
   { code: 'C7', name: 'Telemetry and Log', carries: 'Logs, errors, scores, performance', phase: 'Active (local console)' },
   { code: 'C8', name: 'AI Connector', carries: 'AI requests, plans and generated code', phase: 'Phase J' },

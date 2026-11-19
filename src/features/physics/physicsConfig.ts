@@ -55,10 +55,15 @@ export const GROUND_HALF_EXTENT = 50;
 /** Collision groups (Rapier: membership << 16 | filter). Robot parts collide with the environment only. */
 export const GROUP_ENVIRONMENT = 0x0001;
 export const GROUP_ROBOT = 0x0002;
-export const ROBOT_COLLISION_GROUPS = (GROUP_ROBOT << 16) | GROUP_ENVIRONMENT;
-export const ENVIRONMENT_COLLISION_GROUPS = (GROUP_ENVIRONMENT << 16) | (GROUP_ROBOT | GROUP_ENVIRONMENT);
+/** Phase 7: ground planes (and the default floor) have their own group, so distance sensors can ignore them. */
+export const GROUP_GROUND = 0x0004;
+export const ROBOT_COLLISION_GROUPS = (GROUP_ROBOT << 16) | (GROUP_ENVIRONMENT | GROUP_GROUND);
+export const ENVIRONMENT_COLLISION_GROUPS = (GROUP_ENVIRONMENT << 16) | (GROUP_ROBOT | GROUP_ENVIRONMENT | GROUP_GROUND);
+export const GROUND_COLLISION_GROUPS = (GROUP_GROUND << 16) | (GROUP_ROBOT | GROUP_ENVIRONMENT);
 /** Phase 6: sensor rays act like robot parts: they hit the environment (ground, obstacles) and never the robot itself. */
 export const SENSOR_RAY_GROUPS = (GROUP_ROBOT << 16) | GROUP_ENVIRONMENT;
+/** Sensor rays that also see the ground (ignoreGround off). */
+export const SENSOR_RAY_GROUPS_WITH_GROUND = (GROUP_ROBOT << 16) | (GROUP_ENVIRONMENT | GROUP_GROUND);
 
 /**
  * Joint motor tuning. The engine's force-based motor applies

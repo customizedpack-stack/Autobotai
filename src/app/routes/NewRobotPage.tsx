@@ -95,7 +95,7 @@ export function NewRobotPage() {
                       {active && <Check size={14} className="text-accent" />}
                     </div>
                     <p className="mt-1 text-xs text-muted">{c.description}</p>
-                    {!hasFeaturedTemplate(c.id) && <p className="mt-1.5 text-[10.5px] text-faint">Starter template in Phase 7</p>}
+                    {!hasFeaturedTemplate(c.id) && <p className="mt-1.5 text-[10.5px] text-faint">Starter template coming in a later phase</p>}
                   </button>
                 );
               })}

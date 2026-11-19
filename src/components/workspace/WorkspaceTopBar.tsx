@@ -13,8 +13,10 @@ import {
   Settings,
   Shapes,
   Undo2,
+  Trees,
 } from 'lucide-react';
 import { setWorkspaceMode } from '../../features/controls/controlSession';
+import { useEnvironmentStore } from '../../features/environment/store/environmentStore';
 import { selectEngine } from '../../features/physics/simulation/simulationManager';
 import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 import { redo, saveCurrentProject, undo } from '../../features/projects/workspaceActions';
@@ -71,6 +73,7 @@ const MODES = [
   { id: 'build', label: 'Build', icon: <Shapes size={13} />, phase: null, hint: 'Edit the robot design (M)' },
   { id: 'control', label: 'Control', icon: <Gamepad2 size={13} />, phase: null, hint: 'Drive the robot with keys and buttons (M)' },
   { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: null, hint: 'Code Studio: program the robot with blocks or JavaScript' },
+  { id: 'environment', label: 'Environment', icon: <Trees size={13} />, phase: null, hint: 'Environment Editor: build the world the robot is tested in' },
   { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: null, hint: 'Physics simulation: opens Control Mode with the Physics engine' },
 ] as const;
 
@@ -82,8 +85,13 @@ interface WorkspaceTopBarProps {
 export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps) {
   const mode = useRobotStateStore((s) => s.mode);
   const control = mode !== 'build';
-  const canUndo = useSceneStore((s) => s.past.length > 0) && !control;
-  const canRedo = useSceneStore((s) => s.future.length > 0) && !control;
+  const envPast = useEnvironmentStore((s) => s.past.length);
+  const envFuture = useEnvironmentStore((s) => s.future.length);
+  const robotPast = useSceneStore((s) => s.past.length);
+  const robotFuture = useSceneStore((s) => s.future.length);
+  // In the Environment Editor, Undo / Redo work on the environment's own history.
+  const canUndo = mode === 'environment' ? envPast > 0 : robotPast > 0 && !control;
+  const canRedo = mode === 'environment' ? envFuture > 0 : robotFuture > 0 && !control;
   const dirty = useSceneStore((s) => s.dirty);
   const projectName = useSceneStore((s) => s.projectName);
   const collapsed = useWorkspaceStore((s) => s.collapsed);
@@ -93,7 +101,7 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
   const isActive = (id: string) => (id === 'simulate' ? simulating : id === 'control' ? mode === 'control' && !physics : mode === id);
   const choose = (id: string) => {
     if (id === 'simulate') {
-      if (mode === 'build') setWorkspaceMode('control');
+      if (mode !== 'control' && mode !== 'code') setWorkspaceMode('control');
       void selectEngine('physics');
       return;
     }
@@ -137,13 +145,14 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
               aria-pressed={isActive(m.id)}
               title={m.hint}
               data-testid={`mode-${m.id}`}
+              aria-label={m.label}
               className={cn(
-                'flex h-6 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors',
+                'flex h-6 items-center gap-1.5 rounded px-2 text-xs font-medium whitespace-nowrap transition-colors lg:px-2.5',
                 isActive(m.id) ? (m.id === 'build' ? 'bg-raised text-ink' : m.id === 'simulate' ? 'bg-ok text-white' : 'bg-accent text-white') : 'text-muted hover:text-ink',
               )}
             >
               {m.icon}
-              {m.label}
+              <span className={isActive(m.id) ? 'inline' : 'hidden lg:inline'}>{m.label}</span>
             </button>
           ),
         )}

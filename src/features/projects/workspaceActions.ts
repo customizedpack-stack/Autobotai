@@ -1,3 +1,4 @@
+import { redoEnvironment, undoEnvironment } from '../environment/store/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
@@ -42,12 +43,21 @@ export function saveCurrentProject(): boolean {
 }
 
 export function undo(): void {
+  if (useRobotStateStore.getState().mode === 'environment') {
+    const envLabel = undoEnvironment();
+    if (envLabel) log.info('environment', `Undo: ${envLabel}.`);
+    return;
+  }
   const label = useSceneStore.getState().undo();
   if (label) log.info('scene', `Undo: ${label}.`);
   pruneSelection();
 }
 
 export function redo(): void {
+  if (useRobotStateStore.getState().mode === 'environment') {
+    if (redoEnvironment()) log.info('environment', 'Redo.');
+    return;
+  }
   const label = useSceneStore.getState().redo();
   if (label) log.info('scene', 'Redo.');
   pruneSelection();

@@ -3,7 +3,7 @@ import { useRobotStateStore } from '../../../stores/robotStateStore';
 import { log } from '../../../utils/logger';
 import { onSessionEnd } from '../../controls/controlSession';
 import { setExternalController, shutdown as shutdownKinematic } from '../../controls/movementEngine';
-import type { EnvironmentId } from '../engine/environments';
+import { resolveEnvironment } from '../../environment/store/environmentStore';
 import { FIXED_STEP, MAX_FRAME_SECONDS, MAX_TICKS_PER_FRAME } from '../physicsConfig';
 import type { DebugSnapshot, PhysicsController } from '../integration/physicsController';
 import { attachSource as attachSensors, detachSource as detachSensors, flush as flushSensors, tick as tickSensors } from '../../sensors/core/sensorManager';
@@ -142,7 +142,8 @@ export async function startSimulation(): Promise<boolean> {
     if (token !== startToken || store().engine !== 'physics' || store().state !== 'starting') return false;
     shutdownKinematic();
     useRobotStateStore.getState().resetRuntime();
-    const next = new Controller(rapier, () => ({ gravityEnabled: store().settings.gravityEnabled, environment: store().settings.environment }));
+    // Phase 7: the SAVED definition of the selected environment (template or user environment) is built.
+    const next = new Controller(rapier, () => ({ gravityEnabled: store().settings.gravityEnabled, environment: resolveEnvironment(store().settings.environment) }));
     const assembly = next.build();
     if (assembly.links.length === 0) {
       next.dispose();
@@ -229,8 +230,10 @@ export function setGravityEnabled(enabled: boolean): void {
 }
 
 /** Change the environment. A running simulation is rebuilt (like Reset). */
-export function setEnvironment(environment: EnvironmentId): void {
+export function setEnvironment(environment: string): void {
+  const changed = store().settings.environment !== environment;
   store().set({ settings: { ...store().settings, environment } });
+  if (changed) bus.publish('simulation.environmentChanged', { environmentId: environment });
   if (controller) {
     controller.stopAll('stopped');
     controller.build();

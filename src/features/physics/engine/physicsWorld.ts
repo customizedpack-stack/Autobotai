@@ -2,9 +2,15 @@ import type { Collider, ImpulseJoint, RigidBody, World } from '@dimforge/rapier3
 import type { Vec3 } from '../../../types/scene';
 import type { AssemblyJoint, AssemblyLink, RobotAssembly } from '../bodies/robotAssembly';
 import type { ShapeSpec } from '../bodies/shapes';
+import type { EnvironmentDefinition, EnvironmentObject } from '../../../types/environment';
+import { validateEnvironmentObject } from '../../environment/config/environmentConfig';
+import { ENVIRONMENT_TEMPLATES, findTemplate } from '../../environment/config/templates';
+import { compose } from '../../robot-model/mat4';
+import { environmentColliderDesc } from './environmentColliders';
 import {
   EARTH_GRAVITY,
   ENVIRONMENT_COLLISION_GROUPS,
+  GROUND_COLLISION_GROUPS,
   GROUND_FRICTION,
   GROUND_HALF_EXTENT,
   GROUND_RESTITUTION,
@@ -12,8 +18,7 @@ import {
   SOLVER_ITERATIONS,
   SUBSTEPS,
 } from '../physicsConfig';
-import { findEnvironment, type EnvironmentId } from './environments';
-import { conjugateQuat, IDENTITY_QUAT, multiplyQuat, rotateVec, twistAngle, type Quat } from './quat';
+import { conjugateQuat, IDENTITY_QUAT, multiplyQuat, quatFromMatrix, rotateVec, twistAngle, type Quat } from './quat';
 import type { Rapier } from './rapierLoader';
 
 /**
@@ -24,7 +29,8 @@ import type { Rapier } from './rapierLoader';
 
 export interface WorldSettings {
   gravityEnabled: boolean;
-  environment: EnvironmentId;
+  /** Phase 7: the environment to build: a definition, or the id of a built-in template. */
+  environment: EnvironmentDefinition | string;
 }
 
 export interface LinkBody {
@@ -58,11 +64,27 @@ const v3 = (v: { x: number; y: number; z: number }): Vec3 => [v.x, v.y, v.z];
 const vec = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
+/** Phase 7: what happened to one environment object when the world was built. */
+export interface EnvironmentBody {
+  objectId: string;
+  name: string;
+  /** active: has a collider; no-collision: collision switched off (drawn only); failed: could not be created. */
+  status: 'active' | 'no-collision' | 'failed';
+  error?: string;
+  body: RigidBody | null;
+  collider: Collider | null;
+  dynamic: boolean;
+}
+
 export class PhysicsWorld {
   readonly rapier: Rapier;
   readonly world: World;
-  readonly ground: Collider;
+  /** The default floor (top at y = 0), present when the environment has no ground object; otherwise null. */
+  readonly ground: Collider | null;
+  /** Colliders of every environment object (ground planes included). */
   readonly obstacles: Collider[] = [];
+  /** Phase 7: one entry per environment object, in definition order. */
+  readonly environmentBodies: EnvironmentBody[] = [];
   links: LinkBody[] = [];
   joints: JointBody[] = [];
   private disposed = false;
@@ -71,32 +93,66 @@ export class PhysicsWorld {
     this.rapier = rapier;
     this.world = new rapier.World({ x: 0, y: settings.gravityEnabled ? -EARTH_GRAVITY : 0, z: 0 });
     this.world.numSolverIterations = SOLVER_ITERATIONS;
-    // Ground: a static slab whose top surface is y = 0 (the grid).
-    this.ground = this.world.createCollider(
-      rapier.ColliderDesc.cuboid(GROUND_HALF_EXTENT, 0.5, GROUND_HALF_EXTENT)
-        .setTranslation(0, -0.5, 0)
-        .setFriction(GROUND_FRICTION)
-        .setRestitution(GROUND_RESTITUTION)
-        // Contact friction = part × ground (a frictionless part slides freely; a wheel at 1.0 grips at 0.9).
-        .setFrictionCombineRule(rapier.CoefficientCombineRule.Multiply)
-        // Contact bounce = the larger restitution (the part's setting decides; the ground does not bounce).
-        .setRestitutionCombineRule(rapier.CoefficientCombineRule.Max)
-        .setCollisionGroups(ENVIRONMENT_COLLISION_GROUPS),
-    );
-    for (const o of findEnvironment(settings.environment).obstacles) {
-      const half = Math.sin(o.yaw / 2);
-      this.obstacles.push(
-        this.world.createCollider(
-          rapier.ColliderDesc.cuboid(o.size[0] / 2, o.size[1] / 2, o.size[2] / 2)
-            .setTranslation(o.position[0], o.position[1], o.position[2])
-            .setRotation({ x: 0, y: half, z: 0, w: Math.cos(o.yaw / 2) })
+    const environment = typeof settings.environment === 'string' ? (findTemplate(settings.environment) ?? ENVIRONMENT_TEMPLATES[0]!) : settings.environment;
+    // Default floor: a static slab whose top surface is y = 0 (the grid), unless the environment brings its own ground.
+    this.ground = environment.objects.some((o) => o.kind === 'ground')
+      ? null
+      : this.world.createCollider(
+          rapier.ColliderDesc.cuboid(GROUND_HALF_EXTENT, 0.5, GROUND_HALF_EXTENT)
+            .setTranslation(0, -0.5, 0)
             .setFriction(GROUND_FRICTION)
+            .setRestitution(GROUND_RESTITUTION)
+            // Contact friction = part × ground (a frictionless part slides freely; a wheel at 1.0 grips at 0.9).
             .setFrictionCombineRule(rapier.CoefficientCombineRule.Multiply)
+            // Contact bounce = the larger restitution (the part's setting decides; the ground does not bounce).
             .setRestitutionCombineRule(rapier.CoefficientCombineRule.Max)
-            .setCollisionGroups(ENVIRONMENT_COLLISION_GROUPS),
-        ),
-      );
+            .setCollisionGroups(GROUND_COLLISION_GROUPS),
+        );
+    for (const object of environment.objects) this.environmentBodies.push(this.addEnvironmentObject(object));
+  }
+
+  /**
+   * Build one environment object. Static objects are fixed colliders; dynamic objects get a
+   * dynamic body with the object's mass. Collider sizes equal the object's size. A failure is
+   * reported on that object only; the rest of the environment stays usable.
+   */
+  private addEnvironmentObject(o: EnvironmentObject): EnvironmentBody {
+    const result: EnvironmentBody = { objectId: o.id, name: o.name, status: 'active', body: null, collider: null, dynamic: o.body === 'dynamic' };
+    if (!o.collision) return { ...result, status: 'no-collision' };
+    const problems = validateEnvironmentObject(o);
+    if (problems.length) return { ...result, status: 'failed', error: problems.join(' ') };
+    try {
+      const R = this.rapier;
+      const desc = environmentColliderDesc(R, o);
+      if (!desc) return { ...result, status: 'failed', error: 'Its shape could not be turned into a collider.' };
+      const rotation = quatFromMatrix(compose([0, 0, 0], o.rotation, [1, 1, 1]));
+      desc
+        .setFriction(o.friction)
+        .setRestitution(o.restitution)
+        .setFrictionCombineRule(R.CoefficientCombineRule.Multiply)
+        .setRestitutionCombineRule(R.CoefficientCombineRule.Max)
+        .setCollisionGroups(o.kind === 'ground' ? GROUND_COLLISION_GROUPS : ENVIRONMENT_COLLISION_GROUPS);
+      let body: RigidBody | null = null;
+      if (o.body === 'dynamic') {
+        body = this.world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(o.position[0], o.position[1], o.position[2]).setRotation(rotation).setCanSleep(true));
+        desc.setMass(o.mass);
+      } else {
+        desc.setTranslation(o.position[0], o.position[1], o.position[2]).setRotation(rotation);
+      }
+      const collider = this.world.createCollider(desc, body ?? undefined);
+      this.obstacles.push(collider);
+      return { ...result, body, collider };
+    } catch (error) {
+      return { ...result, status: 'failed', error: String(error instanceof Error ? error.message : error) };
     }
+  }
+
+  /** Live pose of a dynamic environment object (null for static or missing objects). */
+  environmentPose(objectId: string): { position: Vec3; rotation: Quat } | null {
+    const entry = this.environmentBodies.find((e) => e.objectId === objectId);
+    if (!entry?.body || this.disposed) return null;
+    const r = entry.body.rotation();
+    return { position: v3(entry.body.translation()), rotation: { x: r.x, y: r.y, z: r.z, w: r.w } };
   }
 
   get isDisposed(): boolean {
@@ -233,7 +289,7 @@ export class PhysicsWorld {
   /** Contact points between the robot and the environment (debug view). */
   contactPoints(max = 64): Vec3[] {
     const points: Vec3[] = [];
-    const environment = [this.ground, ...this.obstacles];
+    const environment = this.ground ? [this.ground, ...this.obstacles] : this.obstacles;
     for (const link of this.links) {
       for (let i = 0; i < link.body.numColliders(); i++) {
         const collider = link.body.collider(i);

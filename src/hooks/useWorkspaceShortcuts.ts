@@ -6,6 +6,7 @@ import { deleteSelected, duplicateSelected, redo, saveCurrentProject, undo } fro
 import { useSelectionStore } from '../stores/selectionStore';
 import { saveActiveProgram } from '../features/code-studio/programActions';
 import { useViewportStore } from '../stores/viewportStore';
+import { duplicateObject, removeObject, selectObject, useEnvironmentStore } from '../features/environment/store/environmentStore';
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -37,7 +38,8 @@ export function useWorkspaceShortcuts(enabled: boolean): void {
       if (isTyping(event.target) || document.querySelector('[role="dialog"]')) return;
       // Keys pressed inside the Blockly or code editor belong to the editor.
       if (event.target instanceof Element && event.target.closest('[data-code-editor]')) return;
-      const control = mode !== 'build';
+      const control = mode === 'control' || mode === 'code';
+      const environment = mode === 'environment';
 
       if (!mod && !event.altKey && key === 'm') {
         toggleWorkspaceMode();
@@ -65,12 +67,19 @@ export function useWorkspaceShortcuts(enabled: boolean): void {
         redo();
       } else if (mod && key === 'd') {
         event.preventDefault();
-        duplicateSelected();
+        if (environment) {
+          const id = useEnvironmentStore.getState().selectedId;
+          if (id) duplicateObject(id);
+        } else duplicateSelected();
       } else if (!mod && (key === 'delete' || key === 'backspace')) {
         event.preventDefault();
-        deleteSelected();
+        if (environment) {
+          const id = useEnvironmentStore.getState().selectedId;
+          if (id) removeObject(id);
+        } else deleteSelected();
       } else if (key === 'escape') {
-        useSelectionStore.getState().clear();
+        if (environment) selectObject(null);
+        else useSelectionStore.getState().clear();
       } else if (!mod && !event.altKey && ['q', 'w', 'e', 'r'].includes(key)) {
         const modes = { q: 'select', w: 'translate', e: 'rotate', r: 'scale' } as const;
         useViewportStore.getState().setTransformMode(modes[key as keyof typeof modes]);

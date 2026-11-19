@@ -1,5 +1,5 @@
 import { bus } from '../../../core/bus/connectorBus';
-import { useRobotStateStore } from '../../../stores/robotStateStore';
+import { canDrive, useRobotStateStore } from '../../../stores/robotStateStore';
 import { useSceneStore } from '../../../stores/sceneStore';
 import type { RobotSensor, SensorType } from '../../../types/sensor';
 import { log } from '../../../utils/logger';
@@ -429,7 +429,7 @@ export function readSensor(id: string): SensorReading | undefined {
   const r = runtimes.get(id);
   if (!r) return undefined;
   if (!source) {
-    const reason = useRobotStateStore.getState().mode === 'build' ? 'Sensors run in Control Mode and Code Studio.' : 'Start the physics simulation to read sensors.';
+    const reason = !canDrive(useRobotStateStore.getState().mode) ? 'Sensors run in Control Mode and Code Studio.' : 'Start the physics simulation to read sensors.';
     return offReading(r, reason);
   }
   if (!r.config.enabled) return sensorStream.latest(id) ?? offReading(r, 'Sensor is disabled.');
@@ -487,12 +487,12 @@ let connected = false;
 function syncKinematic(): void {
   const mode = useRobotStateStore.getState().mode;
   const engine = useSimulationStore.getState().engine;
-  const wanted = mode !== 'build' && engine === 'kinematic';
+  const wanted = canDrive(mode) && engine === 'kinematic';
   if (wanted && source?.kind !== 'kinematic') {
     kinematicSource = createKinematicSensorSource();
     attachSource(kinematicSource);
   } else if (!wanted && source?.kind === 'kinematic') {
-    detachSource(mode === 'build' ? 'Back in Build Mode.' : 'Switched to the Physics engine.');
+    detachSource(!canDrive(mode) ? 'Left Control Mode / Code Studio.' : 'Switched to the Physics engine.');
   }
 }
 

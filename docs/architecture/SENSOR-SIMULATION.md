@@ -20,10 +20,10 @@ Three simulated sensors: a distance sensor, wheel encoders and an IMU. Every rea
 ## Distance sensor
 
 - Looks along its local **+X**. With `rays > 1`, rays are spread evenly across `fov` in the sensor's XZ plane, from left (+angle) to right.
-- **Physics-world ray casts** (`castRayAndGetNormal`, solid). Collision groups: the ray belongs to the robot group and only tests the environment group, so **the robot's own parts are never hit**. With `ignoreGround` (default), the ground collider is excluded. Static obstacles are hit. Other robots would be hit too, but a project holds one robot today.
+- **Physics-world ray casts** (`castRayAndGetNormal`, solid). Collision groups: the ray belongs to the robot group and only tests the environment group, so **the robot's own parts are never hit**. With `ignoreGround` (default), objects in the GROUND collision group are excluded: the default floor and every Environment Editor object of kind "ground" (Phase 7). Walls, boxes, platforms, ramps and obstacles from the Environment Editor are in the ENVIRONMENT group and are always hit, including dynamic ones that move. Static obstacles are hit. Other robots would be hit too, but a project holds one robot today.
 - **No hit** within `maxRange`: `distance: null`, `detected: false`, `status: "no-hit"`. **Never 0.**
 - Hit closer than `minRange`: `status: "too-close"`, `detected: true`, `distance: null`.
-- Aggregate for several rays: `distance` = nearest valid hit; `status` is "too-close" if any ray is too close, else "hit" if any ray hit; `rays[]` lists every ray (angle, world direction, distance, status, hit point and normal).
+- Aggregate for several rays: `distance` = nearest valid hit; `status` is "too-close" if any ray is too close, else "hit" if any ray hit; `rays[]` lists every ray (angle, world direction, distance, status, hit point and normal). The aggregate `hitPoint` and `hitNormal` come from the nearest valid hit; when no ray has a valid hit but one is too close, they come from that too-close ray (Phase 7), so the ray drawing still shows where the obstacle is.
 - Kinematic engine: `valid: false`, error "The distance sensor needs the Physics engine…".
 - Invalid mount pose (not a finite number) or a missing part: `valid: false` with a clear error.
 - This is a **multi-ray distance sensor**, not a LiDAR (no 360° scan, no point cloud).
