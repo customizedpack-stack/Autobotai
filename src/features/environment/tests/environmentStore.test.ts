@@ -7,7 +7,7 @@ import { useProjectStore } from '../../../stores/projectStore';
 import { useSceneStore } from '../../../stores/sceneStore';
 import { useSimulationStore } from '../../physics/simulation/simulationStore';
 import { setEnvironment } from '../../physics/simulation/simulationManager';
-import { sanitizeEnvironment, validateEnvironmentObject } from '../config/environmentConfig';
+import { createObject, sanitizeEnvironment, validateEnvironmentObject } from '../config/environmentConfig';
 import { findTemplate } from '../config/templates';
 import '../environmentSession';
 import {
@@ -51,6 +51,33 @@ describe('environment objects', () => {
     expect(draft().objects.map((o) => o.name)).toEqual(['Wall', 'Wall 2', 'Wall 3', 'Wall 4', 'Wall 5', 'Ground Plane']);
     const spots = draft().objects.filter((o) => o.kind === 'wall').map((o) => `${o.position[0]},${o.position[2]}`);
     expect(new Set(spots).size).toBe(5);
+  });
+
+  it('new objects land inside a walled arena, clear of the walls (real footprints, rotation included)', () => {
+    const arena = findTemplate('arena')!;
+    const walls = arena.objects.filter((o) => o.kind === 'wall');
+    expect(walls.length).toBe(4);
+    const objects = [...arena.objects];
+    for (let i = 0; i < 6; i++) {
+      const box = createObject('box', objects);
+      const [x, , z] = box.position;
+      // Inside the 6 m × 6 m arena …
+      expect(Math.abs(x)).toBeLessThan(3);
+      expect(Math.abs(z)).toBeLessThan(3);
+      // … and not touching any wall (thin walls block only their own strip).
+      for (const w of walls) {
+        const c = Math.abs(Math.cos(w.rotation[1]));
+        const s = Math.abs(Math.sin(w.rotation[1]));
+        const hx = (c * w.size[0] + s * w.size[2]) / 2 + box.size[0] / 2;
+        const hz = (s * w.size[0] + c * w.size[2]) / 2 + box.size[2] / 2;
+        expect(Math.abs(w.position[0] - x) >= hx || Math.abs(w.position[2] - z) >= hz).toBe(true);
+      }
+      objects.push(box);
+    }
+    // A wall turned 90° blocks its turned footprint.
+    const turned = { ...createObject('wall', [], { at: [2, 0] }), rotation: [0, Math.PI / 2, 0] as [number, number, number] };
+    const next = createObject('box', [turned]);
+    expect(Math.abs(next.position[2]) >= 1 + 0.1 || Math.abs(next.position[0] - 2) >= 0.05 + 0.1).toBe(true);
   });
 
   it('duplicate, delete, rename (duplicate names refused)', () => {

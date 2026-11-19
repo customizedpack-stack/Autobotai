@@ -2,6 +2,7 @@ import { bus } from '../../core/bus/connectorBus';
 import { useProjectStore } from '../../stores/projectStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
+import { useViewportStore } from '../../stores/viewportStore';
 import { log } from '../../utils/logger';
 import { setWorkspaceMode } from '../controls/controlSession';
 import { selectEngine, setEnvironment, stopSimulation } from '../physics/simulation/simulationManager';
@@ -65,6 +66,11 @@ export function connectEnvironmentSession(): void {
   });
   bus.subscribe('environment.changed', ({ environmentId, change }) => {
     if (change === 'deleted' && useSimulationStore.getState().settings.environment === environmentId) setEnvironment('floor');
+  });
+  // Opening an environment in the editor frames it, so its objects are in view (a template
+  // like the Basic Test Arena is several meters wide; the camera was framed on the robot).
+  bus.subscribe('environment.opened', () => {
+    if (isEditingEnvironment()) useViewportStore.getState().requestFrame();
   });
   // Entering the Environment Editor with nothing open: open the project's saved environment, if any.
   bus.subscribe('robot.modeChanged', ({ mode }) => {
