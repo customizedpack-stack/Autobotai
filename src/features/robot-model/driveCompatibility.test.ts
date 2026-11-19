@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setWorkspaceMode } from '../controls/controlSession';
 import { setScheduler, step, STEP_SECONDS } from '../controls/movementEngine';
 import { robotControl } from '../controls/robotControlApi';
+import { connectCommandBus } from '../controls/commandBus';
+import { wheelAssignment } from './wheelAssignment';
 import { openExplorer } from '../controls/testUtils';
 import { generateFromSource } from '../code-studio/blockly/generator';
 import { setupBlockly } from '../code-studio/blockly/blocklySetup';
@@ -312,5 +314,89 @@ describe('drive setup', () => {
     expect(runProgram({ programId: 'bk', programName: 'Blockly drive', language: 'blockly', code: generated.code }).ok).toBe(true);
     await until(() => useExecutionStore.getState().state === 'completed', 5000);
     expect(x()).toBeGreaterThan(afterJs + 0.05);
+  });
+});
+
+describe('stale drive errors and wheel labels after setup (UI polish)', () => {
+  const lastError = () => useRobotStateStore.getState().movement.lastError;
+  beforeEach(() => connectCommandBus());
+
+  it('a rejected move before setup shows the setup error; a successful setup clears it, and driving works', () => {
+    openStored(legacyStoredProject());
+    expect(robotControl.drive.forward().ok).toBe(false);
+    expect(lastError()).toMatch(/no drive controller/);
+    expect(robotModel.setUpDifferentialDrive().ok).toBe(true);
+    expect(lastError()).toBeNull();
+    expect(robotControl.drive.forward().ok).toBe(true);
+    run(0.5);
+    expect(chassisPose()!.position[0]).toBeGreaterThan(0.05);
+  });
+
+  it('setup from the Build inspector clears the error too; undoing the setup does not bring a stale message back', () => {
+    openStored(legacyStoredProject());
+    robotControl.drive.forward();
+    expect(lastError()).toMatch(/no drive controller/);
+    setWorkspaceMode('build');
+    expect(robotModel.setUpDifferentialDrive().ok).toBe(true);
+    expect(lastError()).toBeNull();
+    undo();
+    expect(lastError()).toBeNull();
+  });
+
+  it('a fresh Explorer Bot shows no setup error, and its drive works', () => {
+    openExplorer();
+    expect(lastError()).toBeNull();
+    expect(robotControl.drive.forward().ok).toBe(true);
+    expect(lastError()).toBeNull();
+  });
+
+  it('genuine current errors stay visible: a setup that fails, a disabled motor, a bad value', () => {
+    // Setup that cannot succeed (one wheel): the robot still has no drive, so the message stays.
+    openStored(legacyStoredProject({ objects: phase1Objects().filter((o) => o.name !== 'Right Wheel') }));
+    robotControl.drive.forward();
+    const noDrive = lastError();
+    expect(robotModel.setUpDifferentialDrive().ok).toBe(false);
+    expect(lastError()).toBe(noDrive);
+
+    // A disabled motor: unrelated model changes keep the error; enabling the motor clears it.
+    openExplorer();
+    const left = scene().actuators.find((a) => a.name.includes('Left'))!;
+    expect(robotModel.updateActuator(left.id, { enabled: false }).ok).toBe(true);
+    expect(robotControl.drive.forward().ok).toBe(false);
+    expect(lastError()).toMatch(/is disabled/);
+    expect(robotModel.updateController(drive()!.id, { maxLinearSpeed: 0.4 }).ok).toBe(true);
+    expect(lastError()).toMatch(/is disabled/);
+    expect(robotModel.updateActuator(left.id, { enabled: true }).ok).toBe(true);
+    expect(lastError()).toBeNull();
+
+    // An invalid command value is not a setup problem: a model change never hides it.
+    expect(robotControl.drive.set(5).ok).toBe(false);
+    const bad = lastError();
+    expect(bad).toMatch(/speed/);
+    expect(robotModel.updateController(drive()!.id, { maxLinearSpeed: 0.45 }).ok).toBe(true);
+    expect(lastError()).toBe(bad);
+  });
+
+  it('wheel labels follow physical sides; legacy names keep their warning and are never renamed or moved', () => {
+    openStored(legacyStoredProject());
+    const before = scene().objects.map((o) => ({ id: o.id, name: o.name }));
+    const worldsBefore = worlds(scene().objects);
+    expect(robotModel.setUpDifferentialDrive().ok).toBe(true);
+    const a = wheelAssignment(drive()!, scene().objects, scene().joints);
+    // Phase 1 put "Right Wheel" at −Z: physically the left wheel.
+    expect(a.left.partName).toBe('Right Wheel');
+    expect(a.right.partName).toBe('Left Wheel');
+    expect(a.left.nameMismatch && a.right.nameMismatch).toBe(true);
+    expect(a.warnings.filter((w) => w.includes('sits on the robot'))).toHaveLength(2);
+    expect(a.warnings.join(' ')).toMatch(/"Right Wheel" sits on the robot's left side/);
+    expect(scene().objects.map((o) => ({ id: o.id, name: o.name }))).toEqual(before);
+    const worldsAfter = worlds(scene().objects);
+    for (const id of Object.keys(worldsBefore)) worldsAfter[id]!.forEach((v, i) => expect(v).toBeCloseTo(worldsBefore[id]![i]!, 6));
+    // A fresh Explorer Bot: names and sides agree, no warning.
+    openExplorer();
+    const f = wheelAssignment(drive()!, scene().objects, scene().joints);
+    expect(f.left.partName).toBe('Left Wheel');
+    expect(f.right.partName).toBe('Right Wheel');
+    expect(f.warnings).toEqual([]);
   });
 });

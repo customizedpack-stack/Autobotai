@@ -1,4 +1,5 @@
 import { DriveSetupGuide } from './DriveSetupGuide';
+import { WheelAssignmentView } from './WheelAssignmentView';
 import { useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
@@ -56,11 +57,8 @@ function DriveEditor({ controller }: { controller: DifferentialDriveController }
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
         <dt className="text-faint">Moves</dt>
         <dd className="truncate text-right">{name(controller.rootComponentId)}</dd>
-        <dt className="text-faint">Left wheel</dt>
-        <dd className="truncate text-right">{name(controller.leftJointId)}</dd>
-        <dt className="text-faint">Right wheel</dt>
-        <dd className="truncate text-right">{name(controller.rightJointId)}</dd>
       </dl>
+      <WheelAssignmentView controller={controller} testId="drive-wheels-build" />
       <div className="grid grid-cols-2 gap-1.5">
         <Dimension
           label="Wheel radius"
@@ -101,7 +99,6 @@ function DriveEditor({ controller }: { controller: DifferentialDriveController }
         </div>
       </div>
       {!measured.ok && <p className="text-[11px] text-err">{measured.errors.join(' ')}</p>}
-      {measured.ok && measured.geometry.warnings.map((w) => <p key={w} className="text-[11px] text-warn">{w}</p>)}
       <Button size="sm" variant="danger" icon={<Trash2 size={12} />} onClick={() => robotModel.removeController(controller.id)}>
         Remove drive
       </Button>

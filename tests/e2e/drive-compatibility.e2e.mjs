@@ -118,6 +118,14 @@ try {
     const log = await page.getByTestId('console-log').innerText();
     assert(/Set up differential drive with 2 DC motor/.test(log), 'success message missing');
     assert(/Drive repair: Added 2 revolute wheel joints/.test(log), 'repair message missing');
+    // The rejected W press before setup must not leave a stale red error behind.
+    assert((await page.getByTestId('command-error').count()) === 0, `stale error still shown: ${await page.getByTestId('command-error').textContent().catch(() => '')}`);
+    // Wheels by physical side; the legacy names keep their warning (parts are not renamed).
+    assert((await page.getByTestId('drive-wheels-left').getAttribute('data-part')) === 'Right Wheel', 'left wheel label');
+    assert((await page.getByTestId('drive-wheels-right').getAttribute('data-part')) === 'Left Wheel', 'right wheel label');
+    const warn = await page.getByTestId('drive-wheels-warnings').innerText();
+    assert(/"Right Wheel" sits on the robot's left side/.test(warn) && /"Left Wheel" sits on the robot's right side/.test(warn), 'naming warning missing');
+    await page.getByTestId('drive-wheels').scrollIntoViewIfNeeded();
     await shot('02-setup-succeeded');
   });
 
@@ -175,6 +183,9 @@ try {
     await createProject(page, BASE, 'explorer', 'Fresh Explorer');
     await page.getByTestId('mode-control').click();
     assert((await page.getByTestId('setup-drive-guide').count()) === 0, 'fresh Explorer Bot lost its drive');
+    assert((await page.getByTestId('command-error').count()) === 0, 'fresh Explorer Bot shows an error');
+    assert((await page.getByTestId('drive-wheels-left').getAttribute('data-part')) === 'Left Wheel', 'fresh left wheel label');
+    assert((await page.getByTestId('drive-wheels-warnings').count()) === 0, 'fresh Explorer Bot shows a naming warning');
     await wasd('fresh');
     await shot('07-fresh-explorer-bot');
   });

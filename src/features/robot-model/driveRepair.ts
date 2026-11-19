@@ -4,6 +4,7 @@ import { suggestDifferentialDrive } from './drive';
 import { decompose, invert, multiply, transformDirection } from './mat4';
 import { createJoint, reparentComponent, type Model } from './operations';
 import { indexObjects, worldMatrix } from './transforms';
+import { namingWarning } from './wheelAssignment';
 
 /**
  * Differential-drive diagnosis and the safe repair of legacy robots.
@@ -116,8 +117,9 @@ export function planDriveRepair(model: Model): RepairResult {
     });
     if (!made.ok) return { ok: false, errors: made.errors };
     working = made.model;
-    if (!wheel.name.toLowerCase().includes(side.toLowerCase())) {
-      warnings.push(`The part "${wheel.name}" sits on the robot's ${side.toLowerCase()} side (left is −Z when the robot faces +X), so it is driven as the ${side.toLowerCase()} wheel. You can rename it in Build Mode.`);
+    const physical = side === 'Left' ? 'left' : 'right';
+    if (new RegExp(`\\b${physical === 'left' ? 'right' : 'left'}\\b`, 'i').test(wheel.name) && !new RegExp(`\\b${physical}\\b`, 'i').test(wheel.name)) {
+      warnings.push(namingWarning(wheel.name, physical));
     }
   }
   summary.push(`Added 2 revolute wheel joints (${wheels.map((w) => `"${w.name}"`).join(' and ')} on "${base.name}").`);

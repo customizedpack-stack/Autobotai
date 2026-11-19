@@ -17,6 +17,7 @@ import { JointPreview } from './JointPreview';
 import { SimulationPanel } from '../../features/physics/components/SimulationPanel';
 import { SensorPanel } from '../../features/sensors/components/SensorPanel';
 import { DriveSetupGuide } from '../../features/inspector/DriveSetupGuide';
+import { WheelAssignmentView } from '../../features/inspector/WheelAssignmentView';
 import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -135,6 +136,9 @@ export function RobotControlPanel({ variant = 'control' }: { variant?: 'control'
         </Section>
       ) : (
         <Section title="Drive">
+          <div className="mb-2">
+            <WheelAssignmentView controller={controller} testId="drive-wheels" />
+          </div>
           {readiness.length > 0 && (
             <ul className="mb-2 space-y-1 rounded-md bg-err/10 p-2 text-[11px] text-err" data-testid="drive-problems">
               {readiness.map((r) => (

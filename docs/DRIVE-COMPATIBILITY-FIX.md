@@ -163,3 +163,45 @@ The schema version is unchanged (v3).
 - The repair recognizes the Phase 1 layout and robots with two unjointed wheels on, or loose next to, a single chassis. Other custom robots get the exact problem list instead of an automatic change, by design.
 - Phase 1's part names "Left Wheel" and "Right Wheel" are kept (user data is not renamed). The drive uses the physical sides, and the console says so. Users can rename the parts in Build Mode.
 - Legacy projects get default sensors only through the existing **Add default sensors** button (Phase 6); the repair does not add sensors.
+
+## 11. UI polish after Phase 8: stale error and wheel labels (19 Nov 2026)
+
+**Stale error.** In the old screenshot 02 the setup had succeeded, but the Robot Control panel still showed the red message "This robot has no drive controller. Use "Set up differential drive" first." That message came from the W press made *before* the setup. The Command Bus stored it in `movement.lastError`, and nothing cleared it when the robot changed.
+
+**Fix:**
+- The Command Bus now remembers when a shown error came **only** from the drive-setup check (no controller, missing or disabled motor, and so on).
+- Whenever the robot model changes, `clearObsoleteDriveError()` clears that error **unless the same setup problem still exists**.
+- A successful setup, from the Control panel or the Build inspector, therefore clears it.
+- Genuine current errors stay visible: a setup that failed, a motor that is still disabled, or a command with a bad value (that is not a setup problem, so model changes never hide it).
+- The console history is not edited.
+
+**Wheel labels.** The Drive section in Control Mode and the drive settings in the Build inspector now show each side by **physical position**, taken from the drive controller: the wheel part and its joint, for example "Left wheel: Right Wheel · Left Wheel Joint" on a repaired Phase 1 robot. When a part's name says the other side, the repair's naming warning now stays visible there, instead of appearing only once in the console. Nothing is renamed or moved. A fresh Explorer Bot shows matching names and no warning.
+
+**Files:**
+- `src/features/controls/commandBus.ts`
+- `src/features/robot-model/wheelAssignment.ts` (new)
+- `src/features/inspector/WheelAssignmentView.tsx` (new)
+- `src/features/inspector/ControllerSection.tsx`
+- `src/components/workspace/RobotControlPanel.tsx`
+- `src/features/robot-model/driveRepair.ts` (shared warning text)
+
+**Tests:**
+- 5 new unit tests in `driveCompatibility.test.ts`:
+  - error cleared after setup in Control Mode;
+  - error cleared after setup in Build Mode, and undo brings no stale error back;
+  - a fresh robot shows no error;
+  - current errors stay: a failed setup, a disabled motor, a bad value;
+  - wheel labels by physical side, warnings kept, no renaming or moving.
+- With the Command Bus fix removed, the two error-clearing tests fail, as intended. The Build Mode test also passes on the old code, because switching to Build Mode already resets the movement state; it remains as a guard.
+- Browser: step A3 now checks that no red error is shown after setup, the left/right labels ("Right Wheel" is the left wheel) and both naming warnings; step A8 checks that a fresh Explorer Bot has no error and no warning.
+- `02-setup-succeeded.png` was captured again and shows the successful setup without the stale error.
+
+**Gate (final code):**
+
+| Command | Exit code | Result |
+| --- | --- | --- |
+| `npm run typecheck` | 0 | Pass |
+| `npm run lint` | 0 | 0 warnings, 0 errors |
+| `npx vitest run` | 0 | 395 passed, 0 failed (42 files; 390 before plus 5 new) |
+| `npm run build` | 0 | Pass |
+| `npm run test:e2e` | 0 | 11 suites, 184 / 184 steps (drive-compatibility 9/9, camera 18/18) |
