@@ -6,6 +6,7 @@ import { setupBlockly } from './blocklySetup';
 import { beginDiagnostics, endDiagnostics, NO_JOINT, primeMissingJoints } from './robotBlocks';
 import { SUPPORTED_BLOCK_TYPES } from './toolbox';
 import { NO_SENSOR, primeMissingSensors, SENSOR_BLOCK_TYPES } from './sensorBlocks';
+import { insideFrameHandler } from './cameraBlocks';
 
 /**
  * Blockly → JavaScript, with checks first.
@@ -68,6 +69,10 @@ function checkStack(start: Blockly.Block, issues: BlockIssue[]): void {
       const id = joint.getValue() as string;
       if (id === NO_JOINT) issues.push({ blockId: block.id, message: 'This robot has no movable joints for this block.', severity: 'error' });
       else if (!jointIds.has(id)) issues.push({ blockId: block.id, message: 'A block refers to a joint that no longer exists in this robot. Choose a joint again.', severity: 'error' });
+    }
+    // Phase 8: "value of this camera frame" only exists inside "every frame from camera".
+    if (block.type === 'camera_frame_value' && !insideFrameHandler(block)) {
+      issues.push({ blockId: block.id, message: 'Put "value of this camera frame" inside an "every frame from camera … do" block.', severity: 'error' });
     }
     // Phase 6: sensor blocks must point at an existing sensor of the right type.
     const sensorField = block.getField('SENSOR');

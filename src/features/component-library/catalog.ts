@@ -54,7 +54,7 @@ export const COMPONENT_CATALOG: readonly ComponentDefinition[] = [
   { id: 'motor-stepper', name: 'Stepper Motor', category: 'motor', description: 'Precise stepping motor.', geometry: { shape: 'box', size: [0.042, 0.042, 0.04] }, color: '#D97706', functionalIn: 'Phase 3 (motors)' },
   // Sensors
   { id: 'sensor-distance', name: 'Distance Sensor', category: 'sensor', description: 'Ultrasonic / IR range finder.', geometry: { shape: 'box', size: [0.03, 0.025, 0.05] }, color: '#22C55E', functionalIn: 'Phase 6 as a distance sensor (see "Sensors on this part")' },
-  { id: 'sensor-camera', name: 'Camera', category: 'sensor', description: 'RGB camera module.', geometry: { shape: 'box', size: [0.03, 0.03, 0.03] }, color: '#10B981', functionalIn: 'a later phase (camera simulation)' },
+  { id: 'sensor-camera', name: 'Camera', category: 'sensor', description: 'RGB camera module.', geometry: { shape: 'box', size: [0.03, 0.03, 0.03] }, color: '#10B981', functionalIn: 'Phase 8 as a camera (see "Sensors on this part" or Inspector → Sensors → Camera)' },
   { id: 'sensor-imu', name: 'IMU', category: 'sensor', description: 'Accelerometer and gyroscope.', geometry: { shape: 'box', size: [0.025, 0.006, 0.025] }, color: '#14B8A6', functionalIn: 'Phase 6 as an IMU (see "Sensors on this part")' },
   { id: 'sensor-lidar', name: 'Lidar', category: 'sensor', description: '360° laser scanner.', geometry: { shape: 'cylinder', radius: 0.035, height: 0.04 }, color: '#06B6D4', functionalIn: 'a later phase (a multi-ray distance sensor works now)' },
   // Joints
@@ -62,10 +62,10 @@ export const COMPONENT_CATALOG: readonly ComponentDefinition[] = [
   { id: 'joint-prismatic', name: 'Prismatic Joint', category: 'joint', description: 'Slides along one axis.', geometry: { shape: 'box', size: [0.08, 0.03, 0.03] }, color: '#A855F7', functionalIn: 'Phase 2 (joints)' },
   { id: 'joint-fixed', name: 'Fixed Joint', category: 'joint', description: 'Rigid connection.', geometry: { shape: 'box', size: [0.03, 0.03, 0.03] }, color: '#8B5CF6', functionalIn: 'Phase 2 (joints)' },
   // Other
-  { id: 'other-battery', name: 'Battery Pack', category: 'other', description: 'Power source.', geometry: { shape: 'box', size: [0.1, 0.03, 0.06] }, color: '#EF4444', functionalIn: 'Phase 7 (power)' },
+  { id: 'other-battery', name: 'Battery Pack', category: 'other', description: 'Power source.', geometry: { shape: 'box', size: [0.1, 0.03, 0.06] }, color: '#EF4444', functionalIn: 'a later phase (power)' },
   { id: 'other-controller', name: 'Controller Board', category: 'other', description: 'Microcontroller board.', geometry: { shape: 'box', size: [0.07, 0.01, 0.05] }, color: '#0EA5E9', functionalIn: 'Phase 4 (code)' },
-  { id: 'other-gripper', name: 'Gripper', category: 'other', description: 'Two-finger end effector.', geometry: { shape: 'box', size: [0.06, 0.08, 0.03] }, color: '#E2E8F0', functionalIn: 'Phase 7 (arms)' },
-  { id: 'other-cone', name: 'Marker Cone', category: 'other', description: 'Reference marker.', geometry: { shape: 'cone', radius: 0.05, height: 0.12 }, color: '#F97316', functionalIn: 'Phase 7 (environments)' },
+  { id: 'other-gripper', name: 'Gripper', category: 'other', description: 'Two-finger end effector.', geometry: { shape: 'box', size: [0.06, 0.08, 0.03] }, color: '#E2E8F0', functionalIn: 'a later phase (arms)' },
+  { id: 'other-cone', name: 'Marker Cone', category: 'other', description: 'Reference marker.', geometry: { shape: 'cone', radius: 0.05, height: 0.12 }, color: '#F97316', functionalIn: 'a visual marker only (environment objects are built in the Environment Editor)' },
 ];
 
 export function findComponent(id: string): ComponentDefinition | undefined {

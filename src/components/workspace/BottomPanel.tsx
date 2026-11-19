@@ -7,6 +7,7 @@ import { ProgramConsole } from '../../features/code-studio/components/ProgramCon
 import { useWorkspaceStore, type BottomPanelTab } from '../../stores/workspaceStore';
 import { IconButton } from '../common/Button';
 import { SensorMonitor } from '../../features/sensors/components/SensorMonitor';
+import { CameraMonitor } from '../../features/camera/components/CameraMonitor';
 import { EnvironmentStatus } from '../../features/environment/components/EnvironmentStatus';
 import { Tabs } from '../common/Tabs';
 
@@ -31,6 +32,7 @@ export function BottomPanel() {
     { id: 'events' as const, label: 'Bus Events', count: eventCount },
     { id: 'environment' as const, label: 'Environment' },
     { id: 'sensors' as const, label: 'Sensors' },
+    { id: 'camera' as const, label: 'Camera' },
     { id: 'status' as const, label: 'Status' },
   ];
 
@@ -73,6 +75,7 @@ export function BottomPanel() {
           {tab === 'status' && <StatusView />}
           {tab === 'program' && <ProgramConsole />}
           {tab === 'sensors' && <SensorMonitor />}
+          {tab === 'camera' && <CameraMonitor />}
           {tab === 'environment' && <EnvironmentStatus />}
         </div>
       )}

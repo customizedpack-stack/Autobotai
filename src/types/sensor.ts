@@ -7,7 +7,7 @@ import type { Vec3 } from './scene';
  * Every sensor has a short, readable id (for example "front-distance") that
  * programs use: robotSensors.distance("front-distance").read().
  */
-export type SensorType = 'distance' | 'encoder' | 'imu';
+export type SensorType = 'distance' | 'encoder' | 'imu' | 'camera';
 
 /** Update-rate presets (Hz). Sensors are sampled from the 60 Hz simulation tick, so 60 Hz is the maximum. */
 export const SENSOR_RATES = [10, 20, 30, 60] as const;
@@ -69,4 +69,42 @@ export interface ImuSensorConfig extends SensorBase {
   frame: 'sensor' | 'world';
 }
 
-export type RobotSensor = DistanceSensorConfig | EncoderSensorConfig | ImuSensorConfig;
+/**
+ * Phase 8: a simulated camera. Like the distance sensor it is mounted on a robot part
+ * (normally a Camera part from the library) with an offset, and it looks along its local
+ * +X axis (up is +Y). It is NOT sampled by the 60 Hz sensor tick: frames are rendered by
+ * the viewport's renderer at `rateHz`, only while something needs them (Camera Monitor,
+ * a program capture or subscription).
+ */
+export const CAMERA_RESOLUTIONS = {
+  '160x120': [160, 120],
+  '320x240': [320, 240],
+  '640x480': [640, 480],
+} as const;
+export type CameraResolution = keyof typeof CAMERA_RESOLUTIONS;
+/** Frame-rate presets (Hz). */
+export const CAMERA_RATES = [5, 10, 15, 30] as const;
+export type CameraRate = (typeof CAMERA_RATES)[number];
+
+export interface CameraSensorConfig extends Omit<SensorBase, 'type' | 'rateHz'> {
+  type: 'camera';
+  /** Frames per second while the feed is in use. */
+  rateHz: CameraRate;
+  /** Robot part the camera is mounted on. */
+  partId: string;
+  /** Mount position relative to the part (m). */
+  position: Vec3;
+  /** Mount rotation relative to the part (Euler XYZ, rad). */
+  rotation: Vec3;
+  /** Horizontal field of view (rad). The vertical field of view follows from the 4:3 aspect ratio. */
+  hFov: number;
+  resolution: CameraResolution;
+  /** Near clipping distance (m). */
+  near: number;
+  /** Far clipping distance (m). */
+  far: number;
+}
+
+export type RobotSensor = DistanceSensorConfig | EncoderSensorConfig | ImuSensorConfig | CameraSensorConfig;
+/** Sensors sampled by the 60 Hz sensor tick (everything except cameras). */
+export type SampledSensor = Exclude<RobotSensor, CameraSensorConfig>;

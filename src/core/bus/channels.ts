@@ -95,6 +95,8 @@ export interface BusChannels {
     reading: SensorReading | null;
     detail?: string;
   };
+  /** Phase 8: a camera's lifecycle on the C3 stream (frames themselves never go over the bus). */
+  'camera.event': { cameraId: string; event: 'error' | 'recovered'; detail?: string };
 }
 
 export type BusChannel = keyof BusChannels;
@@ -110,7 +112,7 @@ export interface FutureConnector {
 export const FUTURE_CONNECTORS: readonly FutureConnector[] = [
   { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, hierarchy, joints', phase: 'Active (Phase 2; actuators in Phase 3)' },
   { code: 'C2', name: 'Command Bus', carries: 'Commands: drive, turn, setJointTarget, stop, reset', phase: 'Active (Phase 3)' },
-  { code: 'C3', name: 'Sensor Stream', carries: 'Distance, wheel encoder and IMU readings (camera and lidar later)', phase: 'Active (Phase 6)' },
+  { code: 'C3', name: 'Sensor Stream', carries: 'Distance, wheel encoder and IMU readings; camera frames (Phase 8)', phase: 'Active (Phase 6, cameras Phase 8)' },
   { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 (runtime state via robotStateStore)' },
   { code: 'C5', name: 'Environment Connector', carries: 'Ground, walls, boxes, platforms, ramps, obstacles', phase: 'Active (Phase 7)' },
   { code: 'C6', name: 'Project Storage Connector', carries: 'Cloud save, load and versions', phase: 'Phase 8 / H' },

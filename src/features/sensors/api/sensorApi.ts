@@ -40,7 +40,7 @@ function info(s: RobotSensor): SensorInfo {
   };
 }
 
-const KIND: Record<SensorType, string> = { distance: 'a distance sensor', encoder: 'a wheel encoder', imu: 'an IMU' };
+const KIND: Record<SensorType, string> = { distance: 'a distance sensor', encoder: 'a wheel encoder', imu: 'an IMU', camera: 'a camera' };
 const kindOf = (type: SensorType) => KIND[type];
 
 export function listSensors(): SensorInfo[] {

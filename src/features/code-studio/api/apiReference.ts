@@ -14,7 +14,7 @@ export interface ApiEntry {
   description: string;
   /** Text inserted by autocomplete. ${…} marks placeholders. */
   snippet: string;
-  group: 'Driving' | 'Joints' | 'Sensors' | 'Robot state' | 'Program';
+  group: 'Driving' | 'Joints' | 'Sensors' | 'Camera' | 'Robot state' | 'Program';
 }
 
 export const API_REFERENCE: readonly ApiEntry[] = [
@@ -36,6 +36,10 @@ export const API_REFERENCE: readonly ApiEntry[] = [
   { group: 'Sensors', name: 'robotSensors.encoder', signature: 'robotSensors.encoder(id).read() / .value(field) / .reset() / .subscribe(fn)', description: 'Wheel encoder: angle (rad, continuous), angleDelta, angularVelocity, revolutions, ticks, distance (m). Driving forward counts up on default sensors.', snippet: 'robotSensors.encoder(${"left-encoder"}).read()' },
   { group: 'Sensors', name: 'robotSensors.imu', signature: 'robotSensors.imu(id).read() / .orientation(roll|pitch|yaw) / .angularVelocity(axis) / .linearAcceleration(axis) / .specificForce(axis)', description: 'IMU: orientation (quaternion and roll/pitch/yaw), angular velocity (rad/s), linearAcceleration (m/s², gravity removed), specificForce (what an accelerometer reads).', snippet: 'robotSensors.imu(${"main-imu"}).read()' },
   { group: 'Sensors', name: 'robotSensors.odometry', signature: 'robotSensors.odometry()', description: 'Position and heading estimated from the two drive-wheel encoders. An estimate: it drifts from the true pose over time.', snippet: 'robotSensors.odometry()' },
+  { group: 'Camera', name: 'robotCamera.list', signature: 'robotCamera.list()', description: 'The robot\'s cameras: id, name, enabled, width, height, hFov and vFov (rad), near, far, rateHz.', snippet: 'robotCamera.list()' },
+  { group: 'Camera', name: 'robotCamera.getState', signature: 'robotCamera.getState(id)', description: 'Camera status: idle, live, disabled or error; frames, fps, rendererReady (false when the 3D view is closed), error.', snippet: 'robotCamera.getState(${"front-camera"})' },
+  { group: 'Camera', name: 'robotCamera.capture', signature: 'robotCamera.capture(id, { format? })', description: 'One new image, made asynchronously (the simulation keeps running). format: "rgba" (default), "gray" or "none" (numbers only). Gives width, height, data (rows top to bottom), brightness (0 … 100), meanColor { r, g, b }. Limits: 5 captures per second, 2 waiting, 8 MB of images per second.', snippet: 'robotCamera.capture(${"front-camera"}, { format: ${"gray"} })' },
+  { group: 'Camera', name: 'robotCamera.subscribe', signature: 'robotCamera.subscribe(id, fn, { maxHz?, format? }) / .unsubscribe() / robotCamera.unsubscribeAll()', description: 'Receive frames as they are made, at most maxHz per second (default 2, at most 5). Up to 2 camera subscriptions per program; Stop ends them all.', snippet: 'robotCamera.subscribe(${"front-camera"}, (frame) => console.log(frame.brightness), { format: "none" })' },
   { group: 'Robot state', name: 'robotControl.getState', signature: 'getState()', description: 'Snapshot: movement (status, intent, twist, distance, lastError), speedPercent, rootPoses, jointPositions.', snippet: 'robotControl.getState()' },
   { group: 'Program', name: 'wait', signature: 'wait(ms)', description: 'Wait 0 … 60000 ms. Pause-aware.', snippet: 'wait(${1000})' },
   { group: 'Program', name: 'console.log', signature: 'console.log(...values)', description: 'Write to the Program console (also console.warn, console.error, print).', snippet: 'console.log(${"message"})' },

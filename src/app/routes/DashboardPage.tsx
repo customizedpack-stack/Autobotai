@@ -15,7 +15,7 @@ import type { RobotProject } from '../../types/project';
 const JOURNEY = [
   { icon: <Boxes size={15} />, title: 'Design', text: '3D workspace, parts, joints and motors', status: 'Available', tone: 'ok' as const },
   { icon: <Code2 size={15} />, title: 'Program', text: 'Blockly blocks and JavaScript in Code Studio', status: 'Available', tone: 'ok' as const },
-  { icon: <Play size={15} />, title: 'Simulate', text: 'Rigid-body physics, sensors and your own test environments', status: 'Available', tone: 'ok' as const },
+  { icon: <Play size={15} />, title: 'Simulate', text: 'Physics, sensors, cameras and your own test environments', status: 'Available', tone: 'ok' as const },
   { icon: <Bot size={15} />, title: 'AI Brain', text: 'Talk to your robot, AI vision and autonomy', status: 'Phase J', tone: 'neutral' as const },
 ];
 

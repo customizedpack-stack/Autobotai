@@ -4,6 +4,7 @@ import { javascriptGenerator } from 'blockly/javascript';
 import * as En from 'blockly/msg/en';
 import { registerRobotBlocks } from './robotBlocks';
 import { registerSensorBlocks } from './sensorBlocks';
+import { registerCameraBlocks } from './cameraBlocks';
 
 /**
  * One-time Blockly setup: English messages, the library blocks used in the
@@ -21,6 +22,7 @@ export function setupBlockly(): typeof Blockly {
   javascriptGenerator.INFINITE_LOOP_TRAP = 'await __checkpoint();\n';
   registerRobotBlocks();
   registerSensorBlocks();
+  registerCameraBlocks();
   return Blockly;
 }
 

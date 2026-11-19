@@ -76,7 +76,7 @@ describe('sensor configuration: persistence, validation, undo', () => {
     const d = model.sensors!.find((s) => s.id === 'front-distance')!;
     expect(validateSensor({ ...d, id: 'Front Distance' }, model)).toContainEqual(expect.stringMatching(/lowercase/));
     expect(validateSensor({ ...d, minRange: 5 } as typeof d, model)).toContainEqual(expect.stringMatching(/Minimum range/));
-    expect(validateSensor({ ...d, rateHz: 25 as 20 }, model)).toContainEqual(expect.stringMatching(/10, 20, 30, 60/));
+    expect(validateSensor({ ...d, rateHz: 25 as 20 } as typeof d, model)).toContainEqual(expect.stringMatching(/10, 20, 30, 60/));
     expect(robotModel.updateSensor('front-distance', { rays: 3, fov: 0 }).ok).toBe(false);
   });
 

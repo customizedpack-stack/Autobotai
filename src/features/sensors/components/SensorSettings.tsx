@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useSceneStore } from '../../../stores/sceneStore';
-import { SENSOR_RATES, type RobotSensor, type SensorRate } from '../../../types/sensor';
+import { CAMERA_RATES, CAMERA_RESOLUTIONS, SENSOR_RATES, type CameraRate, type CameraResolution, type RobotSensor, type SensorRate } from '../../../types/sensor';
+import { aspectOf, verticalFov } from '../../camera/cameraMath';
 import type { Vec3 } from '../../../types/scene';
 import { cn } from '../../../utils/cn';
 import { DEG_TO_RAD, RAD_TO_DEG } from '../../../utils/math';
@@ -63,9 +64,9 @@ export function SensorSettings({ sensor }: { sensor: RobotSensor }) {
           data-testid={`${t}-id`}
         />
       </Field>
-      <Field label="Update rate">
-        <select className={selectClass} value={sensor.rateHz} onChange={(e) => update({ rateHz: Number(e.target.value) as SensorRate })} data-testid={`${t}-rate`}>
-          {SENSOR_RATES.map((r) => (
+      <Field label={sensor.type === 'camera' ? 'Frame rate' : 'Update rate'}>
+        <select className={selectClass} value={sensor.rateHz} onChange={(e) => update({ rateHz: Number(e.target.value) as SensorRate & CameraRate })} data-testid={`${t}-rate`}>
+          {(sensor.type === 'camera' ? CAMERA_RATES : SENSOR_RATES).map((r) => (
             <option key={r} value={r}>
               {r} Hz
             </option>
@@ -73,7 +74,7 @@ export function SensorSettings({ sensor }: { sensor: RobotSensor }) {
         </select>
       </Field>
 
-      {(sensor.type === 'distance' || sensor.type === 'imu') && (
+      {(sensor.type === 'distance' || sensor.type === 'imu' || sensor.type === 'camera') && (
         <>
           <Field label={sensor.type === 'imu' ? 'Fixed to' : 'Mounted on'}>
             <select className={selectClass} value={sensor.partId} onChange={(e) => update({ partId: e.target.value })} data-testid={`${t}-part`}>
@@ -116,6 +117,32 @@ export function SensorSettings({ sensor }: { sensor: RobotSensor }) {
             <input type="checkbox" className="justify-self-end accent-[#3B82F6]" checked={sensor.ignoreGround} onChange={(e) => update({ ignoreGround: e.target.checked })} data-testid={`${t}-ground`} />
           </Field>
           <p className="text-[10.5px] text-faint">Looks along its +X axis. No hit returns no distance (null), never 0. Needs the Physics engine.</p>
+        </>
+      )}
+
+      {sensor.type === 'camera' && (
+        <>
+          <Field label="Field of view" hint="° horizontal">
+            <NumberField label="fov" value={sensor.hFov * RAD_TO_DEG} step={5} decimals={1} min={20} testId={`${t}-hfov`} onCommit={(v) => update({ hFov: Math.min(Math.max(v, 20), 120) * DEG_TO_RAD })} />
+          </Field>
+          <Field label="Resolution">
+            <select className={selectClass} value={sensor.resolution} onChange={(e) => update({ resolution: e.target.value as CameraResolution })} data-testid={`${t}-resolution`}>
+              {(Object.keys(CAMERA_RESOLUTIONS) as CameraResolution[]).map((r) => (
+                <option key={r} value={r}>
+                  {r.replace('x', ' × ')}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Near clipping" hint="m">
+            <NumberField label="near" value={sensor.near} step={0.01} decimals={3} min={0.005} testId={`${t}-near`} onCommit={(v) => update({ near: v })} />
+          </Field>
+          <Field label="Far clipping" hint="m">
+            <NumberField label="far" value={sensor.far} step={1} decimals={1} min={0.5} testId={`${t}-far`} onCommit={(v) => update({ far: v })} />
+          </Field>
+          <p className="text-[10.5px] leading-relaxed text-faint" data-testid={`${t}-optics`}>
+            Looks along its +X axis. Vertical field of view {(verticalFov(sensor.hFov, aspectOf(sensor.resolution)) * RAD_TO_DEG).toFixed(1)}° (4:3). Move or rotate the camera part to aim it. See the Camera tab for the live image.
+          </p>
         </>
       )}
 

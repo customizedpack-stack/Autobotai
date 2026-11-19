@@ -7,6 +7,7 @@
  *
  *   worker → host:  ready | call | log | done | fail
  *   host → worker:  result | pause | resume | sensor (a reading for a subscription, Phase 6)
+ *                   | camera (a frame for a camera subscription, Phase 8)
  *   frame → host:   fromWorker | workerError | startFailed      (envelope)
  *   host → frame:   start | toWorker                           (envelope)
  */
@@ -38,9 +39,15 @@ export const SANDBOX_OPS = {
   'sensor.unsubscribe': { subscriptionId: 'number' },
   'sensor.resetEncoder': { sensorId: 'string' },
   'sensor.odometry': {},
+  // ── Phase 8: robotCamera (C3). Read-only; images are plain data copies. ──
+  'camera.list': {},
+  'camera.state': { cameraId: 'string' },
+  'camera.capture': { cameraId: 'string', format: 'string?' },
+  'camera.subscribe': { cameraId: 'string', maxHz: 'number?', format: 'string?' },
+  'camera.unsubscribe': { subscriptionId: 'number' },
 } as const satisfies Record<string, Record<string, ArgType>>;
 
-type ArgType = 'number' | 'number?' | 'string' | 'boolean?';
+type ArgType = 'number' | 'number?' | 'string' | 'string?' | 'boolean?';
 
 export type SandboxOp = keyof typeof SANDBOX_OPS;
 export type SandboxArgs = Record<string, number | string | boolean | undefined>;
@@ -58,7 +65,8 @@ export type HostMessage =
   | { v: 1; kind: 'result'; id: number; ok: false; error: string }
   | { v: 1; kind: 'pause' }
   | { v: 1; kind: 'resume' }
-  | { v: 1; kind: 'sensor'; subscriptionId: number; reading: unknown };
+  | { v: 1; kind: 'sensor'; subscriptionId: number; reading: unknown }
+  | { v: 1; kind: 'camera'; subscriptionId: number; frame: unknown };
 
 export type FrameMessage =
   | { t: 'fromWorker'; msg: unknown }
@@ -85,7 +93,7 @@ export function isSandboxOp(op: unknown): op is SandboxOp {
 }
 
 /** Readable name of an argument for error messages. */
-const ARG_LABEL: Record<string, string> = { speed: 'speed', durationMs: 'durationMs', rate: 'rate', jointId: 'joint id', target: 'target', value: 'speed percent', ms: 'wait time', sensorId: 'sensor id', type: 'sensor type', maxHz: 'maxHz', subscriptionId: 'subscription id' };
+const ARG_LABEL: Record<string, string> = { speed: 'speed', durationMs: 'durationMs', rate: 'rate', jointId: 'joint id', target: 'target', value: 'speed percent', ms: 'wait time', sensorId: 'sensor id', type: 'sensor type', maxHz: 'maxHz', subscriptionId: 'subscription id', cameraId: 'camera id', format: 'image format' };
 
 /**
  * Check the arguments of an operation: only known keys, correct primitive types,

@@ -4,11 +4,13 @@ import type { ActuatorInput, ActuatorPatch, ControllerPatch, RobotActuator, Robo
 import type { JointInput, JointPatch, RobotJoint } from '../../types/joint';
 import type { SceneObject, SceneObjectDraft, Transform } from '../../types/scene';
 import type { RobotSensor } from '../../types/sensor';
-import { defaultSensorsFor, SENSOR_TYPE_LABEL, validateSensor } from '../sensors/config/sensorConfig';
+import { defaultCamera, defaultSensorsFor, SENSOR_TYPE_LABEL, uniqueSensorId, validateSensor } from '../sensors/config/sensorConfig';
+import { findComponent } from '../component-library/catalog';
+import { cameraMountSpot } from './cameraPlacement';
 import { log } from '../../utils/logger';
 import { materializeObject } from '../projects/materialize';
 import { actuatorTypeInfo } from './actuators';
-import { suggestDifferentialDrive } from './drive';
+import { repairAndSuggestDrive } from './driveRepair';
 import { jointTypeLabel } from './joints';
 import * as ops from './operations';
 import { indexObjects, localFromWorld, transformToMatrix } from './transforms';
@@ -196,15 +198,25 @@ export const robotModel = {
 
   // ── Controllers (schema v3) ────────────────────────────────────────────────
 
-  /** Detect two wheel joints and add a differential-drive controller with DC motors. */
+  /**
+   * Detect two wheel joints and add a differential-drive controller with DC motors.
+   * Robots saved before joints existed (Phase 1) are first repaired safely: loose parts are
+   * attached to the chassis and the two wheel joints are added (see driveRepair.ts). The
+   * repair and the drive are ONE undo step, and nothing is changed when any part fails.
+   */
   setUpDifferentialDrive(): CommandResult<RobotController> {
     const current = model();
     if (current.controllers.some((c) => c.type === 'differentialDrive')) return reject('Set up drive', ['A differential-drive controller already exists.']);
-    const suggestion = suggestDifferentialDrive(current.objects, current.joints, current.actuators);
-    if (!suggestion.ok) return reject('Set up drive', suggestion.errors);
-    const result = ops.addController(current, suggestion.controller, suggestion.actuators);
+    const plan = repairAndSuggestDrive(current);
+    if (!plan.ok) return reject('Set up drive', plan.errors);
+    const { suggestion } = plan;
+    const result = ops.addController(plan.model, suggestion.controller, suggestion.actuators);
     if (!result.ok) return reject('Set up drive', result.errors);
-    apply('Set up differential drive', result.model);
+    apply(plan.repaired ? 'Repair robot structure and set up differential drive' : 'Set up differential drive', result.model);
+    if (plan.repaired) {
+      for (const line of plan.summary) log.info('scene', `Drive repair: ${line}`);
+      for (const line of plan.warnings) log.warning('scene', `Drive repair: ${line}`);
+    }
     for (const a of suggestion.actuators) bus.publish('robotModel.actuatorCreated', { actuatorId: a.id, type: a.type, jointId: a.jointId });
     bus.publish('robotModel.controllerChanged', { controllerId: result.controller.id, change: 'added' });
     log.success('scene', `Set up differential drive with ${suggestion.actuators.length} DC motor(s).`);
@@ -263,6 +275,43 @@ export const robotModel = {
     bus.publish('robotModel.sensorChanged', { sensorId: id, change: 'removed' });
     log.warning('scene', `Removed sensor "${sensor.name}" (${sensor.id}).`);
     return { ok: true, value: sensor };
+  },
+
+  /**
+   * Phase 8: add a working camera. With `partId` (or a Camera part without a camera) the
+   * camera is mounted on that part; otherwise a Camera part is added at the front top of
+   * the robot, looking forward. Part and camera are ONE undo step.
+   */
+  addCamera(partId?: string): CommandResult<RobotSensor> {
+    const current = model();
+    const sensors = current.sensors ?? [];
+    const cameras = sensors.filter((s) => s.type === 'camera');
+    let objects = current.objects;
+    let mount = partId ? objects.find((o) => o.id === partId) : objects.find((o) => o.metadata.componentId === 'sensor-camera' && !cameras.some((c) => c.partId === o.id));
+    if (partId && !mount) return reject('Add camera', ['The part to mount the camera on does not exist.']);
+    let added: SceneObject | null = null;
+    if (!mount) {
+      const spot = cameraMountSpot(objects, current.controllers);
+      const definition = findComponent('sensor-camera');
+      if (!spot || !definition) return reject('Add camera', ['Add a robot part first: the camera is mounted on the robot.']);
+      const taken = new Set(objects.map((o) => o.name));
+      const name = ['Front Camera', 'Camera', ...Array.from({ length: 50 }, (_, i) => `Camera ${i + 2}`)].find((n) => !taken.has(n))!;
+      added = {
+        ...materializeObject({ name, category: 'sensor', componentId: definition.id, description: definition.description, geometry: definition.geometry, color: definition.color, transform: { position: spot.position, rotation: [0, 0, 0], scale: [1, 1, 1] } }),
+        parentId: spot.parentId,
+      };
+      objects = [...objects, added];
+      mount = added;
+    }
+    const camera = defaultCamera(mount.id, uniqueSensorId(cameras.length === 0 ? 'front-camera' : 'camera', sensors), cameras.length === 0 ? 'Front Camera' : `Camera ${cameras.length + 1}`);
+    const next = { ...current, objects };
+    const errors = validateSensor(camera, next, sensors);
+    if (errors.length) return reject('Add camera', errors);
+    apply(added ? `Add ${added.name}` : `Add camera to ${mount.name}`, { ...next, sensors: [...sensors, camera] });
+    if (added) bus.publish('robotModel.componentAdded', { componentId: added.id, name: added.name, parentId: added.parentId });
+    bus.publish('robotModel.sensorChanged', { sensorId: camera.id, change: 'added' });
+    log.success('scene', `Added camera "${camera.name}" (${camera.id}) on "${mount.name}".`);
+    return { ok: true, value: camera };
   },
 
   /** Add the standard sensors that fit this robot (distance, wheel encoders, IMU). One undo step. */
