@@ -15,6 +15,7 @@ import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { JointPreview } from './JointPreview';
 import { SimulationPanel } from '../../features/physics/components/SimulationPanel';
+import { SensorPanel } from '../../features/sensors/components/SensorPanel';
 import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 
 function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -257,6 +258,10 @@ export function RobotControlPanel({ variant = 'control' }: { variant?: 'control'
             {movement.lastError}
           </p>
         )}
+      </Section>
+
+      <Section title="Sensors">
+        <SensorPanel />
       </Section>
 
       <Section title={`Actuators (${actuators.length})`}>

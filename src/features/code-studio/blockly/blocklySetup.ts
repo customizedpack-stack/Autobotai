@@ -3,6 +3,7 @@ import 'blockly/blocks';
 import { javascriptGenerator } from 'blockly/javascript';
 import * as En from 'blockly/msg/en';
 import { registerRobotBlocks } from './robotBlocks';
+import { registerSensorBlocks } from './sensorBlocks';
 
 /**
  * One-time Blockly setup: English messages, the library blocks used in the
@@ -19,6 +20,7 @@ export function setupBlockly(): typeof Blockly {
   // a "forever" loop never blocks the sandbox's message handling.
   javascriptGenerator.INFINITE_LOOP_TRAP = 'await __checkpoint();\n';
   registerRobotBlocks();
+  registerSensorBlocks();
   return Blockly;
 }
 

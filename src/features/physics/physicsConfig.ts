@@ -57,6 +57,8 @@ export const GROUP_ENVIRONMENT = 0x0001;
 export const GROUP_ROBOT = 0x0002;
 export const ROBOT_COLLISION_GROUPS = (GROUP_ROBOT << 16) | GROUP_ENVIRONMENT;
 export const ENVIRONMENT_COLLISION_GROUPS = (GROUP_ENVIRONMENT << 16) | (GROUP_ROBOT | GROUP_ENVIRONMENT);
+/** Phase 6: sensor rays act like robot parts: they hit the environment (ground, obstacles) and never the robot itself. */
+export const SENSOR_RAY_GROUPS = (GROUP_ROBOT << 16) | GROUP_ENVIRONMENT;
 
 /**
  * Joint motor tuning. The engine's force-based motor applies

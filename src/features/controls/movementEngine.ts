@@ -232,6 +232,16 @@ export function step(dt: number): void {
   }
 
   useRobotStateStore.getState().patch({ rootPoses, jointPositions, actuators, movement });
+  stepObserver?.(dt);
+}
+
+/**
+ * Phase 6: called after every kinematic step (the sensor manager samples here, so there
+ * is no second loop). Only one observer; null removes it.
+ */
+let stepObserver: ((dt: number) => void) | null = null;
+export function setStepObserver(observer: ((dt: number) => void) | null): void {
+  stepObserver = observer;
 }
 
 function stopEverything(status: CommandStatus): void {

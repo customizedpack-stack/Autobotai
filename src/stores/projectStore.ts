@@ -8,6 +8,8 @@ import { PROJECT_SCHEMA_VERSION, type NewProjectInput, type RobotProject } from 
 import type { RobotActuator, RobotController } from '../types/actuator';
 import type { RobotJoint } from '../types/joint';
 import type { SceneObject } from '../types/scene';
+import type { RobotSensor } from '../types/sensor';
+import { defaultSensorsFor } from '../features/sensors/config/sensorConfig';
 import { createId } from '../utils/id';
 import { log } from '../utils/logger';
 import { safeStorage } from '../utils/storage';
@@ -21,7 +23,7 @@ interface ProjectState {
   createProject: (input: NewProjectInput) => RobotProject;
   saveProject: (
     id: string,
-    data: { name: string; objects: SceneObject[]; joints: RobotJoint[]; actuators: RobotActuator[]; controllers: RobotController[] },
+    data: { name: string; objects: SceneObject[]; joints: RobotJoint[]; actuators: RobotActuator[]; controllers: RobotController[]; sensors?: RobotSensor[] },
   ) => RobotProject | null;
   renameProject: (id: string, name: string) => void;
   deleteProject: (id: string) => void;
@@ -51,6 +53,8 @@ export const useProjectStore = create<ProjectState>()(
           joints,
           actuators: drive.actuators,
           controllers: drive.controllers,
+          // Phase 6: Explorer Bot comes with its standard sensors (distance, two encoders, IMU).
+          ...(template?.id === 'explorer-bot' ? { sensors: defaultSensorsFor({ objects, joints, controllers: drive.controllers }) } : {}),
           createdAt: now,
           updatedAt: now,
           savedAt: now,
@@ -72,6 +76,8 @@ export const useProjectStore = create<ProjectState>()(
           joints: structuredClone(data.joints),
           actuators: structuredClone(data.actuators),
           controllers: structuredClone(data.controllers),
+          // Projects that never had sensors keep having no sensor field.
+          ...(data.sensors && (data.sensors.length > 0 || existing.sensors) ? { sensors: structuredClone(data.sensors) } : {}),
           schemaVersion: PROJECT_SCHEMA_VERSION,
           updatedAt: now,
           savedAt: now,

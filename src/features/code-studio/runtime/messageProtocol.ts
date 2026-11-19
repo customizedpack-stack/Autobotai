@@ -6,7 +6,7 @@
  * validates EVERY message against this allowlist before acting on it.
  *
  *   worker → host:  ready | call | log | done | fail
- *   host → worker:  result | pause | resume
+ *   host → worker:  result | pause | resume | sensor (a reading for a subscription, Phase 6)
  *   frame → host:   fromWorker | workerError | startFailed      (envelope)
  *   host → frame:   start | toWorker                           (envelope)
  */
@@ -31,6 +31,13 @@ export const SANDBOX_OPS = {
   setSpeedPercent: { value: 'number' },
   getState: {},
   wait: { ms: 'number' },
+  // ── Phase 6: robotSensors (C3 Sensor Stream). Read-only; never moves the robot. ──
+  'sensor.list': {},
+  'sensor.read': { sensorId: 'string', type: 'string' },
+  'sensor.subscribe': { sensorId: 'string', type: 'string', maxHz: 'number?' },
+  'sensor.unsubscribe': { subscriptionId: 'number' },
+  'sensor.resetEncoder': { sensorId: 'string' },
+  'sensor.odometry': {},
 } as const satisfies Record<string, Record<string, ArgType>>;
 
 type ArgType = 'number' | 'number?' | 'string' | 'boolean?';
@@ -50,7 +57,8 @@ export type HostMessage =
   | { v: 1; kind: 'result'; id: number; ok: true; value: unknown }
   | { v: 1; kind: 'result'; id: number; ok: false; error: string }
   | { v: 1; kind: 'pause' }
-  | { v: 1; kind: 'resume' };
+  | { v: 1; kind: 'resume' }
+  | { v: 1; kind: 'sensor'; subscriptionId: number; reading: unknown };
 
 export type FrameMessage =
   | { t: 'fromWorker'; msg: unknown }
@@ -77,7 +85,7 @@ export function isSandboxOp(op: unknown): op is SandboxOp {
 }
 
 /** Readable name of an argument for error messages. */
-const ARG_LABEL: Record<string, string> = { speed: 'speed', durationMs: 'durationMs', rate: 'rate', jointId: 'joint id', target: 'target', value: 'speed percent', ms: 'wait time' };
+const ARG_LABEL: Record<string, string> = { speed: 'speed', durationMs: 'durationMs', rate: 'rate', jointId: 'joint id', target: 'target', value: 'speed percent', ms: 'wait time', sensorId: 'sensor id', type: 'sensor type', maxHz: 'maxHz', subscriptionId: 'subscription id' };
 
 /**
  * Check the arguments of an operation: only known keys, correct primitive types,

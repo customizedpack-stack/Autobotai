@@ -4,6 +4,7 @@ import { materializeObject } from '../features/projects/materialize';
 import type { RobotActuator, RobotController } from '../types/actuator';
 import type { RobotJoint } from '../types/joint';
 import type { RobotProject } from '../types/project';
+import type { RobotSensor } from '../types/sensor';
 import type { PartPhysics, SceneObject, SceneObjectDraft, Transform } from '../types/scene';
 import { createId } from '../utils/id';
 
@@ -25,9 +26,10 @@ interface Snapshot {
   joints: RobotJoint[];
   actuators: RobotActuator[];
   controllers: RobotController[];
+  sensors: RobotSensor[];
 }
 
-type ModelFields = Pick<SceneState, 'projectName' | 'objects' | 'joints' | 'actuators' | 'controllers'>;
+type ModelFields = Pick<SceneState, 'projectName' | 'objects' | 'joints' | 'actuators' | 'controllers' | 'sensors'>;
 
 interface SceneState {
   projectId: string | null;
@@ -36,6 +38,8 @@ interface SceneState {
   joints: RobotJoint[];
   actuators: RobotActuator[];
   controllers: RobotController[];
+  /** Phase 6: sensor configurations (saved with the project). */
+  sensors: RobotSensor[];
   past: Snapshot[];
   future: Snapshot[];
   dirty: boolean;
@@ -49,7 +53,7 @@ interface SceneState {
   /** Apply a validated model change as one undo step. Used by the C1 connector. */
   applyModel: (
     label: string,
-    next: { objects?: SceneObject[]; joints?: RobotJoint[]; actuators?: RobotActuator[]; controllers?: RobotController[] },
+    next: { objects?: SceneObject[]; joints?: RobotJoint[]; actuators?: RobotActuator[]; controllers?: RobotController[]; sensors?: RobotSensor[] },
   ) => void;
   addObject: (draft: SceneObjectDraft) => SceneObject;
   addObjects: (drafts: SceneObjectDraft[], label: string) => SceneObject[];
@@ -69,11 +73,11 @@ interface SceneState {
 }
 
 function snapshot(state: ModelFields): Snapshot {
-  return { name: state.projectName, objects: state.objects, joints: state.joints, actuators: state.actuators, controllers: state.controllers };
+  return { name: state.projectName, objects: state.objects, joints: state.joints, actuators: state.actuators, controllers: state.controllers, sensors: state.sensors };
 }
 
 function restore(s: Snapshot): Omit<ModelFields, never> {
-  return { projectName: s.name, objects: s.objects, joints: s.joints, actuators: s.actuators, controllers: s.controllers };
+  return { projectName: s.name, objects: s.objects, joints: s.joints, actuators: s.actuators, controllers: s.controllers, sensors: s.sensors };
 }
 
 const sameTransform = (a: Transform, b: Transform) =>
@@ -103,6 +107,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
     joints: [],
     actuators: [],
     controllers: [],
+    sensors: [],
     past: [],
     future: [],
     dirty: false,
@@ -117,6 +122,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
         joints: structuredClone(project.joints ?? []),
         actuators: structuredClone(project.actuators ?? []),
         controllers: structuredClone(project.controllers ?? []),
+        sensors: structuredClone(project.sensors ?? []),
         past: [],
         future: [],
         dirty: false,
@@ -134,6 +140,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
         joints: [],
         actuators: [],
         controllers: [],
+        sensors: [],
         past: [],
         future: [],
         dirty: false,

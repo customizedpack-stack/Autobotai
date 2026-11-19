@@ -14,7 +14,7 @@ export interface ApiEntry {
   description: string;
   /** Text inserted by autocomplete. ${…} marks placeholders. */
   snippet: string;
-  group: 'Driving' | 'Joints' | 'Robot state' | 'Program';
+  group: 'Driving' | 'Joints' | 'Sensors' | 'Robot state' | 'Program';
 }
 
 export const API_REFERENCE: readonly ApiEntry[] = [
@@ -31,6 +31,11 @@ export const API_REFERENCE: readonly ApiEntry[] = [
   { group: 'Joints', name: 'robot.joints', signature: 'robot.joints()', description: 'List the movable joints: id, name, type, lower, upper, hasActuator.', snippet: 'robot.joints()' },
   { group: 'Joints', name: 'robot.jointInfo', signature: 'robot.jointInfo(jointId)', description: 'Position, limits and whether the joint is moving.', snippet: 'robot.jointInfo(${"jointId"})' },
   { group: 'Joints', name: 'robot.waitForJoint', signature: 'robot.waitForJoint(jointId)', description: 'Resolve when the joint has finished moving.', snippet: 'robot.waitForJoint(${"jointId"})' },
+  { group: 'Sensors', name: 'robotSensors.list', signature: 'robotSensors.list()', description: 'The robot\'s sensors: id, type (distance, encoder, imu), name, enabled, rateHz.', snippet: 'robotSensors.list()' },
+  { group: 'Sensors', name: 'robotSensors.distance', signature: 'robotSensors.distance(id).read() / .meters() / .isObstacleDetected(maxMeters?) / .subscribe(fn) / .waitForReading()', description: 'Distance sensor (Physics engine). read() gives distance (m, or null for no hit), detected, status, hitPoint, rays, valid. meters(): Infinity when nothing is in range.', snippet: 'robotSensors.distance(${"front-distance"}).read()' },
+  { group: 'Sensors', name: 'robotSensors.encoder', signature: 'robotSensors.encoder(id).read() / .value(field) / .reset() / .subscribe(fn)', description: 'Wheel encoder: angle (rad, continuous), angleDelta, angularVelocity, revolutions, ticks, distance (m). Driving forward counts up on default sensors.', snippet: 'robotSensors.encoder(${"left-encoder"}).read()' },
+  { group: 'Sensors', name: 'robotSensors.imu', signature: 'robotSensors.imu(id).read() / .orientation(roll|pitch|yaw) / .angularVelocity(axis) / .linearAcceleration(axis) / .specificForce(axis)', description: 'IMU: orientation (quaternion and roll/pitch/yaw), angular velocity (rad/s), linearAcceleration (m/s², gravity removed), specificForce (what an accelerometer reads).', snippet: 'robotSensors.imu(${"main-imu"}).read()' },
+  { group: 'Sensors', name: 'robotSensors.odometry', signature: 'robotSensors.odometry()', description: 'Position and heading estimated from the two drive-wheel encoders. An estimate: it drifts from the true pose over time.', snippet: 'robotSensors.odometry()' },
   { group: 'Robot state', name: 'robotControl.getState', signature: 'getState()', description: 'Snapshot: movement (status, intent, twist, distance, lastError), speedPercent, rootPoses, jointPositions.', snippet: 'robotControl.getState()' },
   { group: 'Program', name: 'wait', signature: 'wait(ms)', description: 'Wait 0 … 60000 ms. Pause-aware.', snippet: 'wait(${1000})' },
   { group: 'Program', name: 'console.log', signature: 'console.log(...values)', description: 'Write to the Program console (also console.warn, console.error, print).', snippet: 'console.log(${"message"})' },

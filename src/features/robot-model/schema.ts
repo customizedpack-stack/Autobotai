@@ -1,4 +1,5 @@
 import { sanitizePartPhysics } from '../physics/bodies/materials';
+import { sanitizeSensors } from '../sensors/config/sensorConfig';
 import { PROJECT_SCHEMA_VERSION, type RobotCategory, type RobotProject } from '../../types/project';
 import type { RobotActuator, RobotController } from '../../types/actuator';
 import type { RobotJoint } from '../../types/joint';
@@ -149,5 +150,9 @@ export function migrateProject(raw: unknown): MigrationResult {
     a.enabled && (!jointIds.has(a.jointId) || (a.componentId !== null && !ids.has(a.componentId))) ? { ...a, enabled: false } : a,
   );
   for (const issue of issues) warnings.push(issue.message);
+  // Phase 6: optional sensor configurations. Bad values are cleaned up; projects without sensors stay unchanged.
+  const sensors = sanitizeSensors(data.sensors, project, warnings);
+  if (sensors) project.sensors = sensors;
+  else delete project.sensors;
   return { project, fromVersion, toVersion: project.schemaVersion, warnings };
 }

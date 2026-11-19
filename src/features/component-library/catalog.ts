@@ -53,10 +53,10 @@ export const COMPONENT_CATALOG: readonly ComponentDefinition[] = [
   { id: 'motor-servo', name: 'Servo Motor', category: 'motor', description: 'Position-controlled servo.', geometry: { shape: 'box', size: [0.04, 0.04, 0.02] }, color: '#F59E0B', functionalIn: 'Phase 3 (motors)' },
   { id: 'motor-stepper', name: 'Stepper Motor', category: 'motor', description: 'Precise stepping motor.', geometry: { shape: 'box', size: [0.042, 0.042, 0.04] }, color: '#D97706', functionalIn: 'Phase 3 (motors)' },
   // Sensors
-  { id: 'sensor-distance', name: 'Distance Sensor', category: 'sensor', description: 'Ultrasonic / IR range finder.', geometry: { shape: 'box', size: [0.03, 0.025, 0.05] }, color: '#22C55E', functionalIn: 'Phase 6 (sensors)' },
-  { id: 'sensor-camera', name: 'Camera', category: 'sensor', description: 'RGB camera module.', geometry: { shape: 'box', size: [0.03, 0.03, 0.03] }, color: '#10B981', functionalIn: 'Phase 6 (sensors)' },
-  { id: 'sensor-imu', name: 'IMU', category: 'sensor', description: 'Accelerometer and gyroscope.', geometry: { shape: 'box', size: [0.025, 0.006, 0.025] }, color: '#14B8A6', functionalIn: 'Phase 6 (sensors)' },
-  { id: 'sensor-lidar', name: 'Lidar', category: 'sensor', description: '360° laser scanner.', geometry: { shape: 'cylinder', radius: 0.035, height: 0.04 }, color: '#06B6D4', functionalIn: 'Phase 6 (sensors)' },
+  { id: 'sensor-distance', name: 'Distance Sensor', category: 'sensor', description: 'Ultrasonic / IR range finder.', geometry: { shape: 'box', size: [0.03, 0.025, 0.05] }, color: '#22C55E', functionalIn: 'Phase 6 as a distance sensor (see "Sensors on this part")' },
+  { id: 'sensor-camera', name: 'Camera', category: 'sensor', description: 'RGB camera module.', geometry: { shape: 'box', size: [0.03, 0.03, 0.03] }, color: '#10B981', functionalIn: 'a later phase (camera simulation)' },
+  { id: 'sensor-imu', name: 'IMU', category: 'sensor', description: 'Accelerometer and gyroscope.', geometry: { shape: 'box', size: [0.025, 0.006, 0.025] }, color: '#14B8A6', functionalIn: 'Phase 6 as an IMU (see "Sensors on this part")' },
+  { id: 'sensor-lidar', name: 'Lidar', category: 'sensor', description: '360° laser scanner.', geometry: { shape: 'cylinder', radius: 0.035, height: 0.04 }, color: '#06B6D4', functionalIn: 'a later phase (a multi-ray distance sensor works now)' },
   // Joints
   { id: 'joint-revolute', name: 'Revolute Joint', category: 'joint', description: 'Rotates around one axis.', geometry: { shape: 'sphere', radius: 0.03 }, color: '#A855F7', functionalIn: 'Phase 2 (joints)' },
   { id: 'joint-prismatic', name: 'Prismatic Joint', category: 'joint', description: 'Slides along one axis.', geometry: { shape: 'box', size: [0.08, 0.03, 0.03] }, color: '#A855F7', functionalIn: 'Phase 2 (joints)' },

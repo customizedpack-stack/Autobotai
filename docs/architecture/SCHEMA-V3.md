@@ -94,3 +94,20 @@ physics?: {
 - Projects without the field load exactly as before; no field is added on load or save.
 - On load (`normalizeObject`), valid values are kept and invalid ones are dropped with a warning. A project never fails to open because of physics values.
 - Tests: `src/features/physics/tests/partPhysicsPersistence.test.ts` and `rigidBodyFactory.test.ts`.
+
+## Phase 6 addition: optional sensors list (no version change)
+
+Phase 6 adds one **optional** project field, `sensors`. `schemaVersion` stays 3.
+
+```ts
+sensors?: Array<
+  | { id; type: 'distance'; name; enabled; rateHz: 10 | 20 | 30 | 60; partId; position; rotation; minRange; maxRange; fov; rays; ignoreGround }
+  | { id; type: 'encoder';  name; enabled; rateHz; jointId; ticksPerRevolution; invert }
+  | { id; type: 'imu';      name; enabled; rateHz; partId; position; rotation; frame: 'sensor' | 'world' }
+>
+```
+
+- Projects without the field load and save **unchanged** (no field is added). New Explorer Bots are created with four sensors.
+- On load (`sanitizeSensors`): unknown types are skipped with a warning; bad values are replaced by defaults with a warning; duplicate or bad ids get a fresh unique id; sensors whose part or joint is missing are kept but **disabled**; unknown fields are kept.
+- Live readings are never saved.
+- Tests: `src/features/sensors/tests/sensorPersistence.test.ts`.

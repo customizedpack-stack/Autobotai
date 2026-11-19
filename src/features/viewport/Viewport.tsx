@@ -21,6 +21,7 @@ import { TransformGizmo } from './TransformGizmo';
 import { isWebGLAvailable } from './webgl';
 import { EnvironmentObstacles } from '../physics/components/EnvironmentObstacles';
 import { PhysicsDebugView } from '../physics/components/PhysicsDebugView';
+import { SensorRaysView } from '../sensors/components/SensorRaysView';
 
 
 /** The component hierarchy, rendered as nested groups from the roots down. */
@@ -278,6 +279,7 @@ export function Viewport() {
         <PickingBridge />
         <EnvironmentObstacles />
         <PhysicsDebugView />
+        <SensorRaysView />
 
         <GizmoHelper alignment="bottom-right" margin={[64, 64]}>
           <GizmoViewport axisColors={['#EF4444', '#22C55E', '#3B82F6']} labelColor="#0d0f13" />

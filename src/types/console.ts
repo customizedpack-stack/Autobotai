@@ -10,7 +10,8 @@ export type LogSource =
   | 'storage'
   | 'simulation'
   | 'control'
-  | 'code';
+  | 'code'
+  | 'sensor';
 
 export interface LogEntry {
   id: number;

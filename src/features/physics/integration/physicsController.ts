@@ -99,8 +99,15 @@ export class PhysicsController implements ExternalMovementController {
     return this.simTime;
   }
 
+  /** Phase 6: increases on every (re)build, so sensors know the robot jumped (Start, Reset, environment change). */
+  get generation(): number {
+    return this.builds;
+  }
+  private builds = 0;
+
   /** (Re)build the world from the saved design. The design itself is never changed. */
   build(): RobotAssembly {
+    this.builds += 1;
     this.world?.dispose();
     const { objects, joints, actuators, controllers } = useSceneStore.getState();
     const assembly = buildRobotAssembly(objects, joints, actuators);

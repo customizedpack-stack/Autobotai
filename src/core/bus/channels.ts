@@ -6,6 +6,8 @@ import type { JointInput, JointPatch, JointType } from '../../types/joint';
 import type { CameraView } from '../../types/viewport';
 import type { ExecutionState } from '../../features/code-studio/runtime/executionTypes';
 import type { SimulationEngine, SimulationRunState } from '../../features/physics/simulation/simulationStore';
+import type { SensorReading, SensorSourceKind } from '../../features/sensors/core/sensorTypes';
+import type { SensorType } from '../../types/sensor';
 
 /**
  * Message map for the Connector Bus (the platform's "nervous system").
@@ -38,6 +40,7 @@ export interface BusChannels {
   'robotModel.actuatorUpdated': { actuatorId: string; changed: string[] };
   'robotModel.actuatorDeleted': { actuatorId: string };
   'robotModel.controllerChanged': { controllerId: string; change: 'added' | 'updated' | 'removed' };
+  'robotModel.sensorChanged': { sensorId: string; change: 'added' | 'updated' | 'removed'; previousId?: string };
   'robotModel.changed': { reason: string; componentCount: number; jointCount: number; actuatorCount: number };
 
   // ── C1 Robot Model Connector: requests (any module may ask for a change) ──
@@ -66,6 +69,22 @@ export interface BusChannels {
   // ── Physics simulation (Phase 5) ──
   /** Engine choice or simulation state changed. */
   'simulation.changed': { engine: SimulationEngine; state: SimulationRunState; previousEngine: SimulationEngine; previousState: SimulationRunState; reason?: string };
+
+  // ── C3 Sensor Stream (Phase 6): lifecycle only. Readings flow through the stream itself, not the bus. ──
+  /** The stream started, paused, resumed or stopped. */
+  'sensor.stream': { state: 'off' | 'running' | 'paused'; source: SensorSourceKind; session: number; sensors: number };
+  /** One sensor's lifecycle: started, stopped, enabled, disabled, error, recovered, reset. */
+  'sensor.event': {
+    sensorId: string;
+    sensorType: SensorType;
+    event: 'started' | 'stopped' | 'enabled' | 'disabled' | 'error' | 'recovered' | 'reset';
+    timestamp: number;
+    session: number;
+    source: SensorSourceKind | null;
+    valid: boolean;
+    reading: SensorReading | null;
+    detail?: string;
+  };
 }
 
 export type BusChannel = keyof BusChannels;
@@ -81,7 +100,7 @@ export interface FutureConnector {
 export const FUTURE_CONNECTORS: readonly FutureConnector[] = [
   { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, hierarchy, joints', phase: 'Active (Phase 2; actuators in Phase 3)' },
   { code: 'C2', name: 'Command Bus', carries: 'Commands: drive, turn, setJointTarget, stop, reset', phase: 'Active (Phase 3)' },
-  { code: 'C3', name: 'Sensor Stream', carries: 'Distance, IMU, camera and lidar readings', phase: 'Phase 6 / F' },
+  { code: 'C3', name: 'Sensor Stream', carries: 'Distance, wheel encoder and IMU readings (camera and lidar later)', phase: 'Active (Phase 6)' },
   { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 (runtime state via robotStateStore)' },
   { code: 'C5', name: 'Environment Connector', carries: 'Floors, walls, obstacles, zones', phase: 'Phase 7 / I' },
   { code: 'C6', name: 'Project Storage Connector', carries: 'Cloud save, load and versions', phase: 'Phase 8 / H' },

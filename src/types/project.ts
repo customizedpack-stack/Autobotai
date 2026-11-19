@@ -1,6 +1,7 @@
 import type { RobotActuator, RobotController } from './actuator';
 import type { RobotJoint } from './joint';
 import type { SceneObject } from './scene';
+import type { RobotSensor } from './sensor';
 
 export type RobotCategory = 'mobile' | 'arm' | 'humanoid' | 'drone' | 'industrial' | 'quadruped';
 
@@ -22,6 +23,8 @@ export interface RobotProject {
   joints: RobotJoint[];
   actuators: RobotActuator[];
   controllers: RobotController[];
+  /** Phase 6: sensor configurations (optional; projects without sensors have no field). */
+  sensors?: RobotSensor[];
   createdAt: string;
   updatedAt: string;
   /** Last time the draft was explicitly saved in this browser. */

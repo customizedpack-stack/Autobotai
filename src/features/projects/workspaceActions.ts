@@ -27,6 +27,7 @@ export function saveCurrentProject(): boolean {
       joints: scene.joints,
       actuators: scene.actuators,
       controllers: scene.controllers,
+      sensors: scene.sensors,
     });
   if (!saved) {
     log.error('storage', 'Save failed: project not found in local drafts.');

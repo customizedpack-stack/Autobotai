@@ -70,6 +70,8 @@ export interface RobotAssembly {
   joints: AssemblyJoint[];
   /** Component id → index of its link. */
   linkOf: Map<string, number>;
+  /** Phase 6: every component's pose in its link frame (no scale), used to place sensors. */
+  partFrames: Map<string, { position: Vec3; rotation: Quat }>;
   /** Fixed joints that were merged into their parent's body. */
   mergedFixedJoints: string[];
   issues: string[];
@@ -112,16 +114,18 @@ export function buildRobotAssembly(objects: readonly SceneObject[], joints: read
     links.push({ id: o.id, name: o.name, componentIds: [], position: frame.position, rotation: frame.rotation, designTransform: o.transform, isRoot: o.parentId === null, colliders: [], mass: 0 });
   }
 
+  const partFrames = new Map<string, { position: Vec3; rotation: Quat }>();
   for (const o of objects) {
     const linkIndex = linkOf.get(linkRootOf(o.id))!;
     linkOf.set(o.id, linkIndex);
     const link = links[linkIndex]!;
     link.componentIds.push(o.id);
-    // Joint-marker shapes from the library are visual placeholders, not physical parts.
-    if (o.category === 'joint') continue;
     const world = worldMatrix(o.id, index);
     const local = multiply(invert(frames[linkIndex]!), world);
     const t = decompose(local);
+    partFrames.set(o.id, { position: t.position, rotation: quatFromMatrix(local) });
+    // Joint-marker shapes from the library are visual placeholders, not physical parts.
+    if (o.category === 'joint') continue;
     const shape = shapeFor(o.geometry, t.scale);
     if (!isValidShape(shape)) {
       issues.push(`"${o.name}" has a zero or invalid size and has no collision shape.`);
@@ -181,5 +185,5 @@ export function buildRobotAssembly(objects: readonly SceneObject[], joints: read
   for (const link of links) {
     if (link.colliders.length === 0) issues.push(`"${link.name}" has no physical shape; it gets a small default mass.`);
   }
-  return { links, joints: assemblyJoints, linkOf, mergedFixedJoints, issues, totalMass: links.reduce((s, l) => s + l.mass, 0) };
+  return { links, joints: assemblyJoints, linkOf, partFrames, mergedFixedJoints, issues, totalMass: links.reduce((s, l) => s + l.mass, 0) };
 }

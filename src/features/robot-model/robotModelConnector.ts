@@ -3,6 +3,8 @@ import { useSceneStore } from '../../stores/sceneStore';
 import type { ActuatorInput, ActuatorPatch, ControllerPatch, RobotActuator, RobotController } from '../../types/actuator';
 import type { JointInput, JointPatch, RobotJoint } from '../../types/joint';
 import type { SceneObject, SceneObjectDraft, Transform } from '../../types/scene';
+import type { RobotSensor } from '../../types/sensor';
+import { defaultSensorsFor, SENSOR_TYPE_LABEL, validateSensor } from '../sensors/config/sensorConfig';
 import { log } from '../../utils/logger';
 import { materializeObject } from '../projects/materialize';
 import { actuatorTypeInfo } from './actuators';
@@ -31,8 +33,8 @@ import { validateComponentDraft, validateRobotModel, type ModelIssue } from './v
 export type CommandResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
 
 function model(): ops.Model {
-  const { objects, joints, actuators, controllers } = useSceneStore.getState();
-  return { objects, joints, actuators, controllers };
+  const { objects, joints, actuators, controllers, sensors } = useSceneStore.getState();
+  return { objects, joints, actuators, controllers, sensors };
 }
 
 function reject<T>(command: string, errors: string[]): CommandResult<T> {
@@ -115,7 +117,7 @@ export const robotModel = {
       reparentedChildren: result.reparented,
       removedJoints: result.removedJoints,
     });
-    announceRemovedDrives(result.removedActuators, result.removedControllers);
+    announceRemovedDrives(result.removedActuators, result.removedControllers, result.removedSensors);
     return { ok: true, value: { reparented: result.reparented, removedJoints: result.removedJoints, removedActuators: result.removedActuators } };
   },
 
@@ -159,7 +161,7 @@ export const robotModel = {
     if (!result.ok) return reject('Delete joint', result.errors);
     apply(`Delete joint ${result.joint.name}`, result.model);
     bus.publish('robotModel.jointDeleted', { jointId: id, parentId: result.joint.parentId, childId: result.joint.childId });
-    announceRemovedDrives(result.removedActuators, result.removedControllers);
+    announceRemovedDrives(result.removedActuators, result.removedControllers, result.removedSensors);
     log.warning('scene', `Deleted joint "${result.joint.name}".`);
     return { ok: true, value: result.joint };
   },
@@ -224,14 +226,65 @@ export const robotModel = {
     bus.publish('robotModel.controllerChanged', { controllerId: id, change: 'removed' });
     return { ok: true, value: result.controller };
   },
+
+  // ── Sensors (Phase 6) ──────────────────────────────────────────────────────
+
+  addSensor(sensor: RobotSensor): CommandResult<RobotSensor> {
+    const current = model();
+    const sensors = current.sensors ?? [];
+    const errors = validateSensor(sensor, current, sensors);
+    if (errors.length) return reject('Add sensor', errors);
+    apply(`Add ${SENSOR_TYPE_LABEL[sensor.type]}`, { ...current, sensors: [...sensors, sensor] });
+    bus.publish('robotModel.sensorChanged', { sensorId: sensor.id, change: 'added' });
+    log.success('scene', `Added ${SENSOR_TYPE_LABEL[sensor.type].toLowerCase()} "${sensor.name}" (${sensor.id}).`);
+    return { ok: true, value: sensor };
+  },
+
+  /** Replace a sensor's settings (the id may change; it must stay unique). One undo step. */
+  updateSensor(id: string, patch: Partial<RobotSensor>): CommandResult<RobotSensor> {
+    const current = model();
+    const sensors = current.sensors ?? [];
+    const existing = sensors.find((s) => s.id === id);
+    if (!existing) return reject('Edit sensor', ['Sensor not found.']);
+    const next = { ...existing, ...patch, type: existing.type } as RobotSensor;
+    if (JSON.stringify(next) === JSON.stringify(existing)) return { ok: true, value: existing };
+    const errors = validateSensor(next, current, sensors.filter((s) => s.id !== id));
+    if (errors.length) return reject('Edit sensor', errors);
+    apply(`Edit ${existing.name}`, { ...current, sensors: sensors.map((s) => (s.id === id ? next : s)) });
+    bus.publish('robotModel.sensorChanged', { sensorId: next.id, change: 'updated', ...(next.id !== id ? { previousId: id } : {}) });
+    return { ok: true, value: next };
+  },
+
+  removeSensor(id: string): CommandResult<RobotSensor> {
+    const current = model();
+    const sensor = current.sensors?.find((s) => s.id === id);
+    if (!sensor) return reject('Remove sensor', ['Sensor not found.']);
+    apply(`Remove ${sensor.name}`, { ...current, sensors: current.sensors!.filter((s) => s.id !== id) });
+    bus.publish('robotModel.sensorChanged', { sensorId: id, change: 'removed' });
+    log.warning('scene', `Removed sensor "${sensor.name}" (${sensor.id}).`);
+    return { ok: true, value: sensor };
+  },
+
+  /** Add the standard sensors that fit this robot (distance, wheel encoders, IMU). One undo step. */
+  addDefaultSensors(): CommandResult<RobotSensor[]> {
+    const current = model();
+    const added = defaultSensorsFor(current);
+    if (added.length === 0) return reject('Add default sensors', ['No standard sensor fits this robot, or they are already there. Add a sensor part, a differential drive or an IMU part first.']);
+    apply('Add default sensors', { ...current, sensors: [...(current.sensors ?? []), ...added] });
+    for (const s of added) bus.publish('robotModel.sensorChanged', { sensorId: s.id, change: 'added' });
+    log.success('scene', `Added ${added.length} sensor(s): ${added.map((s) => s.id).join(', ')}.`);
+    return { ok: true, value: added };
+  },
 };
 
-function announceRemovedDrives(actuatorIds: string[], controllerIds: string[]): void {
+function announceRemovedDrives(actuatorIds: string[], controllerIds: string[], sensorIds: string[] = []): void {
   for (const id of actuatorIds) bus.publish('robotModel.actuatorDeleted', { actuatorId: id });
   for (const id of controllerIds) bus.publish('robotModel.controllerChanged', { controllerId: id, change: 'removed' });
+  for (const id of sensorIds) bus.publish('robotModel.sensorChanged', { sensorId: id, change: 'removed' });
   if (actuatorIds.length || controllerIds.length) {
     log.warning('scene', `Also removed ${actuatorIds.length} actuator(s) and ${controllerIds.length} drive controller(s) that depended on it.`);
   }
+  if (sensorIds.length) log.warning('scene', `Also removed ${sensorIds.length} sensor(s) that depended on it: ${sensorIds.join(', ')}.`);
 }
 
 let connected = false;

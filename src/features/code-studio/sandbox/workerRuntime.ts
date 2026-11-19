@@ -6,8 +6,8 @@
  *
  * What it does:
  * 1. Removes network, storage and code-loading APIs from the worker scope.
- * 2. Defines the program API as read-only globals: robotControl, robot, wait,
- *    print, console, RobotCommandError, plus tracked setTimeout / setInterval.
+ * 2. Defines the program API as read-only globals: robotControl, robotSensors (Phase 6),
+ *    robot, wait, print, console, RobotCommandError, plus tracked setTimeout / setInterval.
  * 3. Turns every API call into an allowlisted message for the host.
  * 4. Supports cooperative pause (__checkpoint) and reports done / fail.
  *
@@ -59,6 +59,8 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
   let paused = false;
   let lastYield = Date.now();
   let timerSeq = 0;
+  /** Phase 6: callbacks of active sensor subscriptions (subscription id → callback). */
+  const sensorCallbacks = new Map<number, (reading: unknown) => unknown>();
 
   const send = (kind: string, extra: Record<string, unknown>) => {
     if (finished && kind !== 'done' && kind !== 'fail') return;
@@ -140,7 +142,7 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
   };
 
   scope.addEventListener('message', (event) => {
-    const data = event.data as { v?: number; kind?: string; id?: number; ok?: boolean; value?: unknown; error?: string } | undefined;
+    const data = event.data as { v?: number; kind?: string; id?: number; ok?: boolean; value?: unknown; error?: string; subscriptionId?: number; reading?: unknown } | undefined;
     if (!data || data.v !== 1) return;
     if (data.kind === 'result' && typeof data.id === 'number') {
       const entry = pending.get(data.id);
@@ -150,6 +152,15 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
       if (data.ok) entry.resolve(data.value);
       else entry.reject(new RobotCommandError(String(data.error ?? 'Command failed.')));
       checkDone();
+    } else if (data.kind === 'sensor' && typeof data.subscriptionId === 'number') {
+      const callback = sensorCallbacks.get(data.subscriptionId);
+      if (!callback || paused || finished) return;
+      try {
+        const result = callback(data.reading) as { then?: unknown } | undefined;
+        if (result && typeof result.then === 'function') (result as Promise<unknown>).then(undefined, (error: unknown) => fail(error));
+      } catch (error) {
+        fail(error);
+      }
     } else if (data.kind === 'pause') {
       paused = true;
     } else if (data.kind === 'resume') {
@@ -264,6 +275,126 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
     getState: () => call('getState', {}),
   });
 
+  // ── Phase 6: robotSensors. Reads go to the host's sensor API (C3); no engine access. ──
+  type Reading = { valid?: boolean; error?: string; [key: string]: unknown };
+  const sensorHandle = (type: 'distance' | 'encoder' | 'imu', sensorId: unknown) => {
+    const id = String(sensorId);
+    const read = () => call('sensor.read', { sensorId: id, type }) as Promise<Reading>;
+    const subscribe = async (callback: unknown, options?: unknown) => {
+      if (typeof callback !== 'function') throw new TypeError('subscribe needs a function, for example subscribe((reading) => console.log(reading)).');
+      const result = (await call('sensor.subscribe', { sensorId: id, type, ...pick(options, ['maxHz']) })) as { subscriptionId: number; maxHz: number };
+      const subscriptionId = result.subscriptionId;
+      let active = true;
+      sensorCallbacks.set(subscriptionId, callback as (reading: unknown) => unknown);
+      // An active subscription keeps the program running (like a pending timer) until it is unsubscribed.
+      outstanding += 1;
+      return Object.freeze({
+        id: subscriptionId,
+        maxHz: result.maxHz,
+        unsubscribe: async () => {
+          if (!active) return false;
+          active = false;
+          sensorCallbacks.delete(subscriptionId);
+          outstanding -= 1;
+          await call('sensor.unsubscribe', { subscriptionId });
+          checkDone();
+          return true;
+        },
+      });
+    };
+    /** The next new reading of this sensor (valid or not). */
+    const waitForReading = () =>
+      new Promise<Reading>((resolve, reject) => {
+        let sub: { unsubscribe: () => Promise<boolean> } | null = null;
+        let done: Reading | null = null;
+        subscribe((reading: Reading) => {
+          if (done) return;
+          done = reading;
+          if (sub) sub.unsubscribe().then(() => resolve(reading), reject);
+        }).then((s) => {
+          sub = s;
+          if (done) s.unsubscribe().then(() => resolve(done!), reject);
+        }, reject);
+      });
+    /** A valid reading; waits briefly while the sensor warms up, otherwise throws with the sensor's reason. */
+    const readValid = async (): Promise<Reading> => {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const reading = await read();
+        if (reading.valid) return reading;
+        if (!/^(Warming up|No reading yet)/.test(String(reading.error))) throw new RobotCommandError(`Sensor "${id}": ${String(reading.error)}`);
+        await waitForReading();
+      }
+      throw new RobotCommandError(`Sensor "${id}" has no valid reading yet.`);
+    };
+    return { id, read, subscribe, waitForReading, readValid };
+  };
+  const axisOf = (axis: unknown, allowed: readonly string[]) => {
+    const a = String(axis);
+    if (!allowed.includes(a)) throw new TypeError(`Unknown axis "${a}". Use ${allowed.join(', ')}.`);
+    return a;
+  };
+  const robotSensors = Object.freeze({
+    list: () => call('sensor.list', {}),
+    odometry: () => call('sensor.odometry', {}),
+    distance: (sensorId: unknown) => {
+      const h = sensorHandle('distance', sensorId);
+      return Object.freeze({
+        read: h.read,
+        subscribe: h.subscribe,
+        waitForReading: h.waitForReading,
+        /** Distance in meters. Nothing in range → Infinity. Closer than the minimum range → the minimum range. */
+        meters: async () => {
+          const r = await h.readValid();
+          if (r.status === 'no-hit') return Number.POSITIVE_INFINITY;
+          if (r.status === 'too-close') return r.minRange as number;
+          return r.distance as number;
+        },
+        /** Is something within range (or within maxMeters, when given)? */
+        isObstacleDetected: async (maxMeters?: unknown) => {
+          const r = await h.readValid();
+          if (!r.detected) return false;
+          if (maxMeters === undefined || maxMeters === null) return true;
+          return r.status === 'too-close' || (r.distance as number) <= Number(maxMeters);
+        },
+      });
+    },
+    encoder: (sensorId: unknown) => {
+      const h = sensorHandle('encoder', sensorId);
+      const fields = ['angle', 'revolutions', 'ticks', 'angularVelocity', 'distance'];
+      return Object.freeze({
+        read: h.read,
+        subscribe: h.subscribe,
+        waitForReading: h.waitForReading,
+        reset: () => call('sensor.resetEncoder', { sensorId: h.id }),
+        /** One value: angle (rad), revolutions, ticks, angularVelocity (rad/s) or distance (m). */
+        value: async (field: unknown) => {
+          const f = axisOf(field, fields);
+          const r = await h.readValid();
+          return r[f] as number | null;
+        },
+      });
+    },
+    imu: (sensorId: unknown) => {
+      const h = sensorHandle('imu', sensorId);
+      return Object.freeze({
+        read: h.read,
+        subscribe: h.subscribe,
+        waitForReading: h.waitForReading,
+        /** roll, pitch or yaw (rad). */
+        orientation: async (angle: unknown) => {
+          const a = axisOf(angle, ['roll', 'pitch', 'yaw']);
+          return ((await h.readValid()).euler as Record<string, number>)[a];
+        },
+        /** x, y or z (rad/s). */
+        angularVelocity: async (axis: unknown) => ((await h.readValid()).angularVelocity as Record<string, number>)[axisOf(axis, ['x', 'y', 'z'])],
+        /** x, y or z (m/s²), gravity not included. */
+        linearAcceleration: async (axis: unknown) => ((await h.readValid()).linearAcceleration as Record<string, number>)[axisOf(axis, ['x', 'y', 'z'])],
+        /** x, y or z (m/s²): what a real accelerometer reads (includes the reaction to gravity). */
+        specificForce: async (axis: unknown) => ((await h.readValid()).specificForce as Record<string, number>)[axisOf(axis, ['x', 'y', 'z'])],
+      });
+    },
+  });
+
   const robot = Object.freeze({
     joints: () => call('joints', {}),
     jointInfo: (jointId: unknown) => call('joint.info', { jointId: String(jointId) }),
@@ -303,6 +434,7 @@ export function araiWorkerRuntime(scope: RuntimeScope, options: RuntimeOptions):
 
   const globals: Record<string, unknown> = {
     robotControl,
+    robotSensors,
     robot,
     wait,
     print: programConsole.log,

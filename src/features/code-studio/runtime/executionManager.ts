@@ -124,7 +124,7 @@ export function runProgram(request: RunRequest): RunResult {
   const current: Session = {
     id,
     programId: request.programId,
-    bridge: new HostBridge({ sessionId: id, limits }),
+    bridge: new HostBridge({ sessionId: id, limits, push: (message) => reply(current, message) }),
     sandbox: null,
     lineOffset,
     invalidMessages: 0,
