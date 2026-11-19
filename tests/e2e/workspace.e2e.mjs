@@ -65,7 +65,8 @@ async function canvasStats(page) {
   });
 }
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
+// Own process group, so the cleanup below ends the Vite server itself and not only the npx wrapper.
+const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', detached: true });
 let exitCode = 1;
 
 try {
@@ -321,6 +322,10 @@ try {
 } catch (error) {
   console.error('E2E run crashed:', error);
 } finally {
-  server.kill();
+  try {
+    process.kill(-server.pid, 'SIGTERM');
+  } catch {
+    server.kill();
+  }
   process.exit(exitCode);
 }
