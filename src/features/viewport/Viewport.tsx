@@ -13,6 +13,8 @@ import { findComponent } from '../component-library/catalog';
 import { placeComponent } from '../projects/workspaceActions';
 import { childrenMap } from '../robot-model/hierarchy';
 import { CameraRig } from './CameraRig';
+import { CameraRenderer } from '../camera/render/CameraRenderer';
+import { visibleToCameras } from '../camera/render/cameraLayer';
 import { COMPONENT_DRAG_TYPE } from './dragTypes';
 import { gizmoInteraction, objectRegistry, viewportPicker } from './objectRegistry';
 import { SceneAxes } from './SceneAxes';
@@ -154,9 +156,10 @@ function PickingBridge() {
 function Lights({ shadows }: { shadows: boolean }) {
   return (
     <>
-      <hemisphereLight args={['#e2e8f0', '#20242c', 1.1]} />
-      <ambientLight intensity={0.45} />
+      <hemisphereLight args={['#e2e8f0', '#20242c', 1.1]} ref={visibleToCameras} />
+      <ambientLight intensity={0.45} ref={visibleToCameras} />
       <directionalLight
+        ref={visibleToCameras}
         position={[3, 5, 2.5]}
         intensity={2.4}
         castShadow={shadows}
@@ -167,8 +170,8 @@ function Lights({ shadows }: { shadows: boolean }) {
         shadow-camera-bottom={-3}
         shadow-bias={-0.0004}
       />
-      <directionalLight position={[-3, 2.5, -2]} intensity={0.8} />
-      <directionalLight position={[0, 1.5, 4]} intensity={0.35} />
+      <directionalLight position={[-3, 2.5, -2]} intensity={0.8} ref={visibleToCameras} />
+      <directionalLight position={[0, 1.5, 4]} intensity={0.35} ref={visibleToCameras} />
     </>
   );
 }
@@ -307,6 +310,7 @@ export function Viewport() {
         <EnvironmentScene />
         <PhysicsDebugView />
         <SensorRaysView />
+        <CameraRenderer />
 
         <GizmoHelper alignment="bottom-right" margin={[64, 64]}>
           <GizmoViewport axisColors={['#EF4444', '#22C55E', '#3B82F6']} labelColor="#0d0f13" />

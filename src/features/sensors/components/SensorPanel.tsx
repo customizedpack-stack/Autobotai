@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Eye, EyeOff, Gauge, RotateCcw } from 'lucide-react';
 import { useSceneStore } from '../../../stores/sceneStore';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
@@ -11,7 +12,8 @@ const DOT = { ok: 'bg-ok', warn: 'bg-warn', err: 'bg-err', neutral: 'bg-faint' }
 
 /** Compact sensor readings in the Robot Control panel (Control Mode and Code Studio). */
 export function SensorPanel() {
-  const sensors = useSceneStore((s) => s.sensors);
+  const all = useSceneStore((s) => s.sensors);
+  const sensors = useMemo(() => all.filter((s) => s.type !== 'camera'), [all]);
   const readings = useSensorStore((s) => s.readings);
   const stream = useSensorStore((s) => s.stream);
   const showRays = useSensorStore((s) => s.showRays);

@@ -86,12 +86,15 @@ export function SensorsSection() {
           Add default sensors ({defaults.map((d) => TYPE_SHORT[d.type]).join(', ')})
         </Button>
       )}
-      <div className="mt-2 grid grid-cols-3 gap-1">
+      <div className="mt-2 grid grid-cols-4 gap-1">
         {(['distance', 'encoder', 'imu'] as const).map((type) => (
           <Button key={type} size="sm" variant="ghost" icon={<Plus size={11} />} onClick={() => add(type)} data-testid={`add-sensor-${type}`}>
             {TYPE_SHORT[type]}
           </Button>
         ))}
+        <Button size="sm" variant="ghost" icon={<Plus size={11} />} onClick={() => add('camera')} data-testid="add-sensor-camera" title="Add a Camera part at the front of the robot, with a working camera">
+          Camera
+        </Button>
       </div>
       {message && <p className="mt-2 text-[11px] text-err">{message}</p>}
     </section>
@@ -106,6 +109,7 @@ export function PartSensors({ partId }: { partId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const jointIds = new Set(joints.filter((j) => j.childId === partId).map((j) => j.id));
   const mine = sensors.filter((s) => (s.type === 'encoder' ? jointIds.has(s.jointId) : s.partId === partId));
+  const isCameraPart = useSceneStore((s) => s.objects.find((o) => o.id === partId)?.metadata.componentId === 'sensor-camera');
   const canEncoder = joints.some((j) => j.childId === partId && j.type === 'revolute' && !sensors.some((s) => s.type === 'encoder' && s.jointId === j.id));
   return (
     <div data-testid="part-sensors">
@@ -123,6 +127,11 @@ export function PartSensors({ partId }: { partId: string }) {
         <Button size="sm" variant="ghost" icon={<Plus size={11} />} onClick={() => setMessage(addSensorOfType('imu', partId))} data-testid="part-add-imu">
           IMU here
         </Button>
+        {isCameraPart && !mine.some((s) => s.type === 'camera') && (
+          <Button size="sm" variant="ghost" icon={<Plus size={11} />} onClick={() => setMessage(addSensorOfType('camera', partId))} data-testid="part-add-camera">
+            Camera here
+          </Button>
+        )}
         {canEncoder && (
           <Button size="sm" variant="ghost" icon={<Plus size={11} />} onClick={() => setMessage(addSensorOfType('encoder', partId))} data-testid="part-add-encoder">
             Encoder on its joint

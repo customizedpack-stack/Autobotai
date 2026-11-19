@@ -1,4 +1,5 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { visibleToCameras } from '../../camera/render/cameraLayer';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { BufferGeometry, Float32BufferAttribute, type Group } from 'three';
 import { useRobotStateStore } from '../../../stores/robotStateStore';
@@ -94,7 +95,7 @@ const EnvironmentMesh = memo(function EnvironmentMesh({ object, editing, selecte
   };
   return (
     <group ref={register} name={object.name} position={object.position} rotation={object.rotation} userData={{ environmentObjectId: object.id }}>
-      <mesh castShadow receiveShadow onClick={onClick} raycast={editing ? undefined : () => null} userData={{ environmentObjectId: object.id }}>
+      <mesh castShadow receiveShadow onClick={onClick} raycast={editing ? undefined : () => null} userData={{ environmentObjectId: object.id }} ref={visibleToCameras}>
         <ObjectGeometry object={object} />
         <meshStandardMaterial
           color={object.color}

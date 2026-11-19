@@ -1,7 +1,7 @@
 import { bus } from '../../../core/bus/connectorBus';
 import { canDrive, useRobotStateStore } from '../../../stores/robotStateStore';
 import { useSceneStore } from '../../../stores/sceneStore';
-import type { RobotSensor, SensorType } from '../../../types/sensor';
+import type { RobotSensor, SampledSensor, SensorType } from '../../../types/sensor';
 import { log } from '../../../utils/logger';
 import { isLoopRunning, setStepObserver } from '../../controls/movementEngine';
 import { useSimulationStore } from '../../physics/simulation/simulationStore';
@@ -32,7 +32,7 @@ import type { EncoderReading, OdometryEstimate, ReadingBase, SensorReading, Sens
  */
 
 interface Runtime {
-  config: RobotSensor;
+  config: SampledSensor;
   period: number;
   nextDue: number;
   sequence: number;
@@ -56,7 +56,7 @@ let odometry: (OdometryEstimate & { leftRaw?: number; rightRaw?: number; started
 let driveCache: { key: unknown[]; geometry: DriveGeometry | null; leftJointId?: string; rightJointId?: string; rootId?: string } | null = null;
 
 const now = () => performance.now();
-const periodOf = (config: RobotSensor) => 1 / config.rateHz;
+const periodOf = (config: SampledSensor) => 1 / config.rateHz;
 
 function eventBase(r: Runtime) {
   return { sensorId: r.config.id, sensorType: r.config.type as SensorType, timestamp: now(), session, source: source?.kind ?? null };
@@ -75,7 +75,7 @@ function streamState(): 'off' | 'running' | 'paused' {
 
 // ── Configuration (from the robot model) ──
 
-function makeRuntime(config: RobotSensor): Runtime {
+function makeRuntime(config: SampledSensor): Runtime {
   return {
     config,
     period: periodOf(config),
@@ -88,8 +88,12 @@ function makeRuntime(config: RobotSensor): Runtime {
   };
 }
 
-/** Bring runtimes in line with the saved sensor list. No duplicates: one runtime per id. */
-function syncConfigs(sensors: readonly RobotSensor[]): void {
+/**
+ * Bring runtimes in line with the saved sensor list. No duplicates: one runtime per id.
+ * Phase 8: cameras are not sampled here (the camera manager renders their frames).
+ */
+function syncConfigs(all: readonly RobotSensor[]): void {
+  const sensors = all.filter((s): s is SampledSensor => s.type !== 'camera');
   const ids = new Set(sensors.map((s) => s.id));
   for (const [id, r] of runtimes) {
     if (ids.has(id)) continue;
@@ -406,6 +410,14 @@ function onKinematicStep(dt: number): void {
 
 export function activeSource(): SensorSourceKind | null {
   return source?.kind ?? null;
+}
+
+/**
+ * Phase 8: the attached engine view (read-only), so cameras follow the same live part poses
+ * as the other sensors. Null in Build Mode, in the Environment Editor and with physics stopped.
+ */
+export function currentSensorSource(): Pick<SensorSource, 'kind' | 'partPose'> | null {
+  return source;
 }
 
 export function sensorSession(): number {

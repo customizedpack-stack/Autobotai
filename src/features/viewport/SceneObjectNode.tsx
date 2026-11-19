@@ -6,6 +6,7 @@ import type { RobotJoint } from '../../types/joint';
 import type { PrimitiveGeometry, SceneObject, Transform } from '../../types/scene';
 import { posedChildTransform } from '../robot-model/kinematics';
 import { JointMarker } from './JointMarker';
+import { visibleToCameras } from '../camera/render/cameraLayer';
 import { objectRegistry } from './objectRegistry';
 
 export function Geometry({ geometry }: { geometry: PrimitiveGeometry }) {
@@ -73,6 +74,7 @@ export const SceneObjectNode = memo(function SceneObjectNode({ id, ctx }: { id: 
       {object.visible && (
         <mesh
           userData={{ objectId: id }}
+          ref={visibleToCameras}
           castShadow={ctx.shadows}
           receiveShadow={ctx.shadows}
           onClick={handleClick}

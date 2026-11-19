@@ -4,7 +4,7 @@ import type { SensorReading } from '../core/sensorTypes';
 const DEG = 180 / Math.PI;
 const f = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '—');
 
-export const TYPE_SHORT: Record<SensorType, string> = { distance: 'Distance', encoder: 'Encoder', imu: 'IMU' };
+export const TYPE_SHORT: Record<SensorType, string> = { distance: 'Distance', encoder: 'Encoder', imu: 'IMU', camera: 'Camera' };
 
 /** Status of a reading for badges: active, stale, invalid, off. */
 export function readingStatus(reading: SensorReading | undefined, enabled: boolean): { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' } {

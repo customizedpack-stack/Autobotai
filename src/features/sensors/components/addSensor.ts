@@ -20,6 +20,10 @@ function newSensor(type: SensorType, partId?: string): RobotSensor | null {
 }
 
 export function addSensorOfType(type: SensorType, partId?: string): string | null {
+  if (type === 'camera') {
+    const result = robotModel.addCamera(partId);
+    return result.ok ? null : result.errors.join(' ');
+  }
   const sensor = newSensor(type, partId);
   if (!sensor) return type === 'encoder' ? 'No revolute joint without an encoder.' : 'Add a part first.';
   const result = robotModel.addSensor(sensor);

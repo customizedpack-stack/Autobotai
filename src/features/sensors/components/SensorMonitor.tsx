@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { Badge } from '../../../components/common/Badge';
 import { Button } from '../../../components/common/Button';
@@ -77,7 +78,9 @@ function MonitorCard({ sensor, reading }: { sensor: RobotSensor; reading: Sensor
  * refreshes at most 10 times per second.
  */
 export function SensorMonitor() {
-  const sensors = useSceneStore((s) => s.sensors);
+  const all = useSceneStore((s) => s.sensors);
+  const sensors = useMemo(() => all.filter((s) => s.type !== 'camera'), [all]);
+  const cameras = all.length - sensors.length;
   const stream = useSensorStore((s) => s.stream);
   const source = useSensorStore((s) => s.source);
   const readings = useSensorStore((s) => s.readings);
@@ -103,6 +106,7 @@ export function SensorMonitor() {
       {stream === 'off' && (
         <p className="mb-2 text-[11px] text-faint">Sensors run in Control Mode and Code Studio. With the Physics engine, start the simulation.</p>
       )}
+      {cameras > 0 && <p className="mb-2 text-[11px] text-faint">Camera images are in the Camera tab.</p>}
       {sensors.length === 0 ? (
         <p className="text-xs text-muted">This robot has no sensors. Add them in Build Mode (Inspector → Sensors).</p>
       ) : (
