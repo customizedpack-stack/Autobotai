@@ -128,7 +128,7 @@ describe('environment physics properties (direct world)', () => {
     });
     expect(w.environmentBodies.map((b) => b.status)).toEqual(['active', 'failed', 'no-collision']);
     expect(w.environmentBodies[1]!.error).toMatch(/size/);
-    const he = w.environmentBodies[0]!.collider!.halfExtents();
+    const he = w.environmentBodies[0]!.collider!.halfExtents()!;
     expect(he.x).toBeCloseTo(0.05, 6);
     expect(he.y).toBeCloseTo(0.2, 6);
     expect(he.z).toBeCloseTo(1, 6);
