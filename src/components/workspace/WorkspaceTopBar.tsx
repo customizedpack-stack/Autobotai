@@ -145,13 +145,14 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
               aria-pressed={isActive(m.id)}
               title={m.hint}
               data-testid={`mode-${m.id}`}
+              aria-label={m.label}
               className={cn(
-                'flex h-6 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors',
+                'flex h-6 items-center gap-1.5 rounded px-2 text-xs font-medium whitespace-nowrap transition-colors lg:px-2.5',
                 isActive(m.id) ? (m.id === 'build' ? 'bg-raised text-ink' : m.id === 'simulate' ? 'bg-ok text-white' : 'bg-accent text-white') : 'text-muted hover:text-ink',
               )}
             >
               {m.icon}
-              {m.label}
+              <span className={isActive(m.id) ? 'inline' : 'hidden lg:inline'}>{m.label}</span>
             </button>
           ),
         )}

@@ -26,6 +26,7 @@ import { addObject, selectObject, useEnvironmentStore } from '../environment/sto
 import type { EnvironmentObjectKind, ObstacleShape } from '../../types/environment';
 import { PhysicsDebugView } from '../physics/components/PhysicsDebugView';
 import { SensorRaysView } from '../sensors/components/SensorRaysView';
+import { sensorStream } from '../sensors/stream/sensorStream';
 
 
 /** The component hierarchy, rendered as nested groups from the roots down. */
@@ -133,6 +134,8 @@ function PickingBridge() {
     };
     if (w.__ARAI_E2E__) {
       (w as unknown as { __araiCamera: () => number[] }).__araiCamera = () => camera.position.toArray();
+      // Phase 7 tests: active sensor stream listeners (leak checks after Stop).
+      (w as unknown as { __araiSensorListeners: () => number }).__araiSensorListeners = () => sensorStream.listenerCount;
       w.__araiIdByName = (name) => useSceneStore.getState().objects.find((o) => o.name === name)?.id ?? useEnvironmentStore.getState().draft?.objects.find((o) => o.name === name)?.id;
       w.__araiScreenPosition = (id) => {
         const object = objectRegistry.get(id);

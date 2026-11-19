@@ -38,7 +38,6 @@ function Line({ label, hint, children }: { label: string; hint?: string; childre
 const SIZE_LABELS: Record<string, [string, string, string]> = {
   cylinder: ['Diameter', 'Height', 'Diameter'],
   sphere: ['Diameter', 'Diameter', 'Diameter'],
-  wall: ['Thickness (X)', 'Height', 'Width (Z)'],
   default: ['Width (X)', 'Height', 'Depth (Z)'],
 };
 
