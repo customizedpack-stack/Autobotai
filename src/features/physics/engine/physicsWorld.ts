@@ -88,9 +88,12 @@ export class PhysicsWorld {
   links: LinkBody[] = [];
   joints: JointBody[] = [];
   private disposed = false;
+  /** Diagnostics: worlds created and not yet disposed (should be 0 or 1 in the app). */
+  static liveCount = 0;
 
   constructor(rapier: Rapier, settings: WorldSettings) {
     this.rapier = rapier;
+    PhysicsWorld.liveCount += 1;
     this.world = new rapier.World({ x: 0, y: settings.gravityEnabled ? -EARTH_GRAVITY : 0, z: 0 });
     this.world.numSolverIterations = SOLVER_ITERATIONS;
     const environment = typeof settings.environment === 'string' ? (findTemplate(settings.environment) ?? ENVIRONMENT_TEMPLATES[0]!) : settings.environment;
@@ -309,6 +312,7 @@ export class PhysicsWorld {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    PhysicsWorld.liveCount -= 1;
     this.links = [];
     this.joints = [];
     // Frees every body, collider and joint owned by the world.

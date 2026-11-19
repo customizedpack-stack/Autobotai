@@ -11,18 +11,26 @@ export function assert(condition, message) {
 }
 
 export async function startServer(port) {
-  const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore' });
+  // Own process group, so stop() ends the Vite server itself and not only the npx wrapper.
+  const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore', detached: true });
+  const stop = () => {
+    try {
+      process.kill(-server.pid, 'SIGTERM');
+    } catch {
+      server.kill();
+    }
+  };
   const url = `http://localhost:${port}`;
   const start = Date.now();
   while (Date.now() - start < 20000) {
     try {
-      if ((await fetch(url)).ok) return { url, stop: () => server.kill() };
+      if ((await fetch(url)).ok) return { url, stop };
     } catch {
       /* not up yet */
     }
     await new Promise((r) => setTimeout(r, 250));
   }
-  server.kill();
+  stop();
   throw new Error('Preview server did not start');
 }
 

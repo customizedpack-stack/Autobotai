@@ -282,6 +282,28 @@ export function activePhysicsController(): PhysicsController | null {
   return controller;
 }
 
+/**
+ * Diagnostics for tests: live physics worlds (created and not disposed), the active world's
+ * rigid bodies and environment bodies, and whether the simulation loop is scheduled.
+ */
+export async function simulationDiagnostics(): Promise<{ liveWorlds: number; rigidBodies: number; colliders: number; environmentBodies: number; loopRunning: boolean; controller: boolean }> {
+  const { PhysicsWorld } = await import('../engine/physicsWorld');
+  const world = controller?.physicsWorld ?? null;
+  return {
+    liveWorlds: PhysicsWorld.liveCount,
+    rigidBodies: world ? world.world.bodies.len() : 0,
+    colliders: world ? world.world.colliders.len() : 0,
+    environmentBodies: world ? world.environmentBodies.length : 0,
+    loopRunning: frameId !== null,
+    controller: controller !== null,
+  };
+}
+
+// End-to-end test hook, only when a test sets window.__ARAI_E2E__ before the app loads.
+if (typeof window !== 'undefined' && (window as unknown as { __ARAI_E2E__?: boolean }).__ARAI_E2E__) {
+  (window as unknown as { __araiSimulation: typeof simulationDiagnostics }).__araiSimulation = simulationDiagnostics;
+}
+
 let connected = false;
 
 /** Stop the simulation when the live robot session ends. Safe to call more than once. */

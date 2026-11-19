@@ -101,8 +101,14 @@ export function freeSpot(objects: readonly EnvironmentObject[], footprint: [numb
   const overlaps = (x: number, z: number) => {
     if (Math.abs(x) < 0.45 + footprint[0] / 2 && Math.abs(z) < 0.35 + footprint[1] / 2) return true; // robot start area
     return solids.some((o) => {
-      const r = Math.max(o.size[0], o.size[2]) / 2 + Math.max(footprint[0], footprint[1]) / 2 + 0.05;
-      return Math.abs(o.position[0] - x) < r && Math.abs(o.position[2] - z) < r;
+      // The object's real footprint on the floor (its yaw included), not a square of its
+      // longest side: a long thin wall must not block the whole area beside it.
+      const yaw = o.rotation[1];
+      const c = Math.abs(Math.cos(yaw));
+      const s = Math.abs(Math.sin(yaw));
+      const hx = (c * o.size[0] + s * o.size[2]) / 2 + footprint[0] / 2 + 0.05;
+      const hz = (s * o.size[0] + c * o.size[2]) / 2 + footprint[1] / 2 + 0.05;
+      return Math.abs(o.position[0] - x) < hx && Math.abs(o.position[2] - z) < hz;
     });
   };
   for (let ring = 0; ring < 12; ring++) {
