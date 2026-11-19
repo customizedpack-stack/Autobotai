@@ -183,7 +183,7 @@ export function JointInspector({ joint }: { joint: RobotJoint }) {
               onCommit={(v) => update({ limits: { ...joint.limits, upper: fromDisplay(v) } })}
             />
           </div>
-          <p className="mt-2 text-[10.5px] text-faint">Limits are stored now and enforced by the physics engine in Phase 5.</p>
+          <p className="mt-2 text-[10.5px] text-faint">Limits are enforced by both the kinematic and the physics engine.</p>
         </Section>
       )}
 

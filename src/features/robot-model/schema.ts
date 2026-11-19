@@ -1,3 +1,4 @@
+import { sanitizePartPhysics } from '../physics/bodies/materials';
 import { PROJECT_SCHEMA_VERSION, type RobotCategory, type RobotProject } from '../../types/project';
 import type { RobotActuator, RobotController } from '../../types/actuator';
 import type { RobotJoint } from '../../types/joint';
@@ -48,8 +49,13 @@ function normalizeObject(raw: Loose, index: number, warnings: string[]): SceneOb
   const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name : `Object ${index + 1}`;
   const fallbackScale: [number, number, number] = [1, 1, 1];
   if (!isObject(raw.transform)) warnings.push(`"${name}" had no transform; reset to the origin.`);
+  // Phase 5: optional physical properties. Valid values are kept, invalid ones dropped with a warning.
+  const physics = sanitizePartPhysics(raw.physics, name, warnings);
+  const { physics: _ignored, ...rest } = raw as Record<string, unknown>;
+  void _ignored;
   return {
-    ...(raw as object),
+    ...(physics ? { physics } : {}),
+    ...(rest as object),
     id,
     name,
     category: (raw.category as SceneObject['category']) ?? 'other',

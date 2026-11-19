@@ -8,7 +8,7 @@ import type { Transform } from '../types/scene';
  * The design pose stays in sceneStore; Reset returns to it, and "Apply
  * current pose to design" copies a live pose into the design as one undo step.
  *
- * In Phase 5 the physics engine will own this state (Sim State Stream, C4).
+ * With the Physics engine running, the physics controller writes this state once per frame (C4).
  */
 
 /**

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Bot, FolderKanban, GraduationCap, LayoutDashboard, Lock, Play, Plus, Users } from 'lucide-react';
+import { Bot, FolderKanban, GraduationCap, LayoutDashboard, Lock, Plus, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 import { Logo } from '../common/Logo';
@@ -18,7 +18,6 @@ const NAV: readonly NavItem[] = [
 
 /** Modules from the master plan that are not built yet. Shown as roadmap, not as links. */
 const UPCOMING: readonly { label: string; phase: string; icon: ReactNode }[] = [
-  { label: 'Simulation', phase: 'Phase 5', icon: <Play size={16} /> },
   { label: 'AI Assistant', phase: 'Phase J', icon: <Bot size={16} /> },
   { label: 'Learning Center', phase: 'Later', icon: <GraduationCap size={16} /> },
   { label: 'Community', phase: 'Phase 8', icon: <Users size={16} /> },

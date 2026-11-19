@@ -1,6 +1,6 @@
 import type { Vec3 } from './scene';
 
-/** Joint types supported by the builder. Physics behavior arrives in Phase 5. */
+/** Joint types supported by the builder and by the physics simulation (Phase 5). */
 export type JointType = 'fixed' | 'revolute' | 'prismatic';
 
 export interface JointLimits {

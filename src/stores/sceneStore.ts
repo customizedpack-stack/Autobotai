@@ -4,7 +4,7 @@ import { materializeObject } from '../features/projects/materialize';
 import type { RobotActuator, RobotController } from '../types/actuator';
 import type { RobotJoint } from '../types/joint';
 import type { RobotProject } from '../types/project';
-import type { SceneObject, SceneObjectDraft, Transform } from '../types/scene';
+import type { PartPhysics, SceneObject, SceneObjectDraft, Transform } from '../types/scene';
 import { createId } from '../utils/id';
 
 /**
@@ -60,6 +60,8 @@ interface SceneState {
   endTransientChange: (label: string) => void;
   renameObject: (id: string, name: string) => void;
   setVisible: (id: string, visible: boolean) => void;
+  /** Phase 5: set or clear physical property overrides of a part (undoable). Pass undefined to use defaults. */
+  setPartPhysics: (id: string, physics: PartPhysics | undefined) => void;
   duplicateObject: (id: string) => SceneObject | null;
   undo: () => string | null;
   redo: () => string | null;
@@ -202,6 +204,20 @@ export const useSceneStore = create<SceneState>((set, get) => {
       const target = get().objects.find((o) => o.id === id);
       if (!target || target.visible === visible) return;
       commit(`${visible ? 'Show' : 'Hide'} ${target.name}`, { objects: mapObject(id, (o) => ({ ...o, visible })) });
+    },
+
+    setPartPhysics: (id, physics) => {
+      const target = get().objects.find((o) => o.id === id);
+      if (!target) return;
+      const clean = physics && Object.keys(physics).length > 0 ? physics : undefined;
+      if (JSON.stringify(clean ?? null) === JSON.stringify(target.physics ?? null)) return;
+      commit(`Edit physics of ${target.name}`, {
+        objects: mapObject(id, (o) => {
+          const { physics: _old, ...rest } = o;
+          void _old;
+          return clean ? { ...rest, physics: clean } : rest;
+        }),
+      });
     },
 
     /** Copies the component itself (not its children or joints), next to the original. */

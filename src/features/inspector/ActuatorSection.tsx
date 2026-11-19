@@ -112,7 +112,7 @@ function ActuatorEditor({ actuator, joint }: { actuator: RobotActuator; joint: R
           Remove
         </Button>
       </div>
-      <p className="text-[10.5px] text-faint">Torque is used by physics in Phase 5. Velocity limits are enforced now.</p>
+      <p className="text-[10.5px] text-faint">Torque limits the motor force in the Physics engine. Velocity limits apply in both engines.</p>
     </div>
   );
 }

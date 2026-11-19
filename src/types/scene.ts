@@ -45,6 +45,25 @@ export interface SceneObjectMetadata {
   createdAt: string;
 }
 
+/**
+ * Optional physical properties of a component (Phase 5). Every field is optional:
+ * missing values use defaults derived from the component's category and size
+ * (see features/physics/materials.ts). Stored with the project; schema v3 is unchanged
+ * because older projects simply have no `physics` field.
+ */
+export interface PartPhysics {
+  /** Mass in kilograms. When absent, mass = density × volume. */
+  mass?: number;
+  /** Density in kg/m³ (used when `mass` is absent). */
+  density?: number;
+  /** Coulomb friction coefficient (0 … 2). */
+  friction?: number;
+  /** Restitution (bounciness, 0 … 1). */
+  restitution?: number;
+  /** false = the part has mass but no collision shape. */
+  collision?: boolean;
+}
+
 export interface SceneObject {
   id: string;
   name: string;
@@ -56,6 +75,8 @@ export interface SceneObject {
   /** Parent component id, or null for a root component. Children are derived. */
   parentId: string | null;
   metadata: SceneObjectMetadata;
+  /** Physical properties (Phase 5, optional). */
+  physics?: PartPhysics;
 }
 
 /**

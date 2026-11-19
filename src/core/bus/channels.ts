@@ -5,6 +5,7 @@ import type { ActuatorInput, ActuatorPatch, ActuatorType } from '../../types/act
 import type { JointInput, JointPatch, JointType } from '../../types/joint';
 import type { CameraView } from '../../types/viewport';
 import type { ExecutionState } from '../../features/code-studio/runtime/executionTypes';
+import type { SimulationEngine, SimulationRunState } from '../../features/physics/simulation/simulationStore';
 
 /**
  * Message map for the Connector Bus (the platform's "nervous system").
@@ -61,6 +62,10 @@ export interface BusChannels {
   'codeStudio.programChanged': { programId: string; projectId: string; change: 'created' | 'saved' | 'renamed' | 'deleted' };
   /** Execution lifecycle of a program run. */
   'codeStudio.execution': { sessionId: string; programId: string; state: ExecutionState; detail?: string };
+
+  // ── Physics simulation (Phase 5) ──
+  /** Engine choice or simulation state changed. */
+  'simulation.changed': { engine: SimulationEngine; state: SimulationRunState; previousEngine: SimulationEngine; previousState: SimulationRunState; reason?: string };
 }
 
 export type BusChannel = keyof BusChannels;
@@ -77,7 +82,7 @@ export const FUTURE_CONNECTORS: readonly FutureConnector[] = [
   { code: 'C1', name: 'Robot Model Connector', carries: 'Robot structure: parts, hierarchy, joints', phase: 'Active (Phase 2; actuators in Phase 3)' },
   { code: 'C2', name: 'Command Bus', carries: 'Commands: drive, turn, setJointTarget, stop, reset', phase: 'Active (Phase 3)' },
   { code: 'C3', name: 'Sensor Stream', carries: 'Distance, IMU, camera and lidar readings', phase: 'Phase 6 / F' },
-  { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 / E' },
+  { code: 'C4', name: 'Sim State Stream', carries: 'Pose of every part, each physics frame', phase: 'Phase 5 (runtime state via robotStateStore)' },
   { code: 'C5', name: 'Environment Connector', carries: 'Floors, walls, obstacles, zones', phase: 'Phase 7 / I' },
   { code: 'C6', name: 'Project Storage Connector', carries: 'Cloud save, load and versions', phase: 'Phase 8 / H' },
   { code: 'C7', name: 'Telemetry and Log', carries: 'Logs, errors, scores, performance', phase: 'Active (local console)' },

@@ -1,4 +1,5 @@
 import { bus } from '../../core/bus/connectorBus';
+import { useSimulationStore } from '../physics/simulation/simulationStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { createId } from '../../utils/id';
@@ -25,7 +26,8 @@ export interface SubmitResult {
 
 export function commandContext(): CommandContext {
   const { projectId, objects, joints, actuators, controllers } = useSceneStore.getState();
-  return { projectId, mode: useRobotStateStore.getState().mode, objects, joints, actuators, controllers };
+  const { engine, state } = useSimulationStore.getState();
+  return { projectId, mode: useRobotStateStore.getState().mode, objects, joints, actuators, controllers, engine, simulation: state };
 }
 
 export function createCommand<T extends CommandType>(type: T, payload: CommandPayloads[T], source: CommandSource, robotId?: string): RobotCommand<T> {

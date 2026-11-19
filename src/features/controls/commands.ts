@@ -46,6 +46,9 @@ export interface CommandValidation {
 export interface CommandContext {
   projectId: string | null;
   mode: WorkspaceMode;
+  /** Phase 5: which engine moves the robot, and the physics simulation state (default kinematic). */
+  engine?: 'kinematic' | 'physics';
+  simulation?: 'stopped' | 'starting' | 'running' | 'paused';
   objects: readonly SceneObject[];
   joints: readonly RobotJoint[];
   actuators: readonly RobotActuator[];
@@ -87,11 +90,26 @@ export function checkDriveReady(ctx: CommandContext): string[] {
   return errors;
 }
 
+/** Physics engine rules: movement needs a running simulation; joint preview is kinematic only. */
+function checkPhysicsReady(command: RobotCommand, ctx: CommandContext): string | null {
+  if (ctx.engine !== 'physics' || command.type === 'stop' || command.type === 'reset') return null;
+  if (ctx.simulation === 'starting') return 'The physics simulation is starting. Try again in a moment.';
+  if (ctx.simulation === 'paused') return 'The physics simulation is paused. Resume it to move the robot.';
+  if (ctx.simulation !== 'running') return 'Start the physics simulation to move the robot, or switch the engine to Kinematic.';
+  const payload = (command.payload ?? {}) as Record<string, unknown>;
+  if (command.type === 'setJointTarget' && payload.mode === 'preview') {
+    return 'Joint preview is a kinematic tool. In physics mode, move joints with their actuators (setTarget), or switch the engine to Kinematic.';
+  }
+  return null;
+}
+
 export function validateCommand(command: RobotCommand, ctx: CommandContext): CommandValidation {
   const errors: string[] = [];
   if (!TYPES.includes(command.type)) return { valid: false, errors: [`Unknown command type "${String(command.type)}".`] };
   if (!ctx.projectId || command.robotId !== ctx.projectId) errors.push('Target robot is not open in the workspace.');
   if (command.type !== 'stop' && !canDrive(ctx.mode)) errors.push('Switch to Control Mode to move the robot.');
+  const physicsError = checkPhysicsReady(command, ctx);
+  if (physicsError) errors.push(physicsError);
   const payload = (command.payload ?? {}) as Record<string, unknown>;
 
   switch (command.type) {

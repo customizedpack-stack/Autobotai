@@ -15,6 +15,8 @@ import {
   Undo2,
 } from 'lucide-react';
 import { setWorkspaceMode } from '../../features/controls/controlSession';
+import { selectEngine } from '../../features/physics/simulation/simulationManager';
+import { useSimulationStore } from '../../features/physics/simulation/simulationStore';
 import { redo, saveCurrentProject, undo } from '../../features/projects/workspaceActions';
 import { useRobotStateStore, type WorkspaceMode } from '../../stores/robotStateStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -69,7 +71,7 @@ const MODES = [
   { id: 'build', label: 'Build', icon: <Shapes size={13} />, phase: null, hint: 'Edit the robot design (M)' },
   { id: 'control', label: 'Control', icon: <Gamepad2 size={13} />, phase: null, hint: 'Drive the robot with keys and buttons (M)' },
   { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: null, hint: 'Code Studio: program the robot with blocks or JavaScript' },
-  { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: 'Phase 5', hint: '' },
+  { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: null, hint: 'Physics simulation: opens Control Mode with the Physics engine' },
 ] as const;
 
 interface WorkspaceTopBarProps {
@@ -86,6 +88,18 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
   const projectName = useSceneStore((s) => s.projectName);
   const collapsed = useWorkspaceStore((s) => s.collapsed);
   const togglePanel = useWorkspaceStore((s) => s.togglePanel);
+  const physics = useSimulationStore((s) => s.engine === 'physics');
+  const simulating = control && physics;
+  const isActive = (id: string) => (id === 'simulate' ? simulating : id === 'control' ? mode === 'control' && !physics : mode === id);
+  const choose = (id: string) => {
+    if (id === 'simulate') {
+      if (mode === 'build') setWorkspaceMode('control');
+      void selectEngine('physics');
+      return;
+    }
+    setWorkspaceMode(id as WorkspaceMode);
+    if (id === 'control' && physics) void selectEngine('kinematic');
+  };
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-panel px-2" data-testid="workspace-topbar">
@@ -119,13 +133,13 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
             <button
               key={m.id}
               type="button"
-              onClick={() => setWorkspaceMode(m.id as WorkspaceMode)}
-              aria-pressed={mode === m.id}
+              onClick={() => choose(m.id)}
+              aria-pressed={isActive(m.id)}
               title={m.hint}
               data-testid={`mode-${m.id}`}
               className={cn(
                 'flex h-6 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors',
-                mode === m.id ? (m.id === 'build' ? 'bg-raised text-ink' : 'bg-accent text-white') : 'text-muted hover:text-ink',
+                isActive(m.id) ? (m.id === 'build' ? 'bg-raised text-ink' : m.id === 'simulate' ? 'bg-ok text-white' : 'bg-accent text-white') : 'text-muted hover:text-ink',
               )}
             >
               {m.icon}

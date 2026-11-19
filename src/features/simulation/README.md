@@ -1,4 +1,4 @@
-# Simulation Engine (Phase 5)
+# Simulation (moved)
 
-Boundary reserved. Will own: MuJoCo WebAssembly in a Web Worker, fixed timestep, play/pause/reset.
-Publishes poses on **C4 Sim State Stream**; the viewport will render those instead of editor transforms.
+The physics simulation lives in `src/features/physics/` (Phase 5, Rapier).
+See `docs/architecture/PHASE-5-PHYSICS-ENGINE.md` and `docs/architecture/PHYSICS-ROBOT-INTEGRATION.md`.

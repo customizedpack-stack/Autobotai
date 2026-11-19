@@ -19,6 +19,8 @@ import { SceneAxes } from './SceneAxes';
 import { Geometry, SceneObjectNode, type SceneTreeContext } from './SceneObjectNode';
 import { TransformGizmo } from './TransformGizmo';
 import { isWebGLAvailable } from './webgl';
+import { EnvironmentObstacles } from '../physics/components/EnvironmentObstacles';
+import { PhysicsDebugView } from '../physics/components/PhysicsDebugView';
 
 
 /** The component hierarchy, rendered as nested groups from the roots down. */
@@ -177,7 +179,8 @@ function WebGLUnavailable() {
  * Reusable interactive 3D viewport. It reads editor state from stores and
  * contains no editor UI. Drops from the component library are handled here
  * because they need the camera; placement rules live in features/builder.
- * In Phase 5, poses will come from the physics engine (C4) instead.
+ * With the Physics engine, runtime poses come from the physics simulation through
+ * robotStateStore (C4); the viewport renders them the same way.
  */
 export function Viewport() {
   const showGrid = useViewportStore((s) => s.showGrid);
@@ -273,6 +276,8 @@ export function Viewport() {
         <OrbitControls makeDefault enableDamping dampingFactor={0.12} minDistance={0.15} maxDistance={60} />
         <CameraRig />
         <PickingBridge />
+        <EnvironmentObstacles />
+        <PhysicsDebugView />
 
         <GizmoHelper alignment="bottom-right" margin={[64, 64]}>
           <GizmoViewport axisColors={['#EF4444', '#22C55E', '#3B82F6']} labelColor="#0d0f13" />

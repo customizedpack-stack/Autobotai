@@ -66,7 +66,7 @@ try {
   await step('Switching to Control Mode shows the control panel, the kinematic label and locks editing', async () => {
     await page.getByTestId('mode-control').click();
     await page.getByTestId('robot-control-panel').waitFor();
-    await page.getByTestId('kinematic-banner').getByText('Kinematic Simulation — Physics Engine Integration Coming in Phase 5').waitFor();
+    await page.getByTestId('kinematic-banner').getByText('Kinematic Simulation — No Physics').waitFor();
     await page.getByTestId('edit-lock').waitFor();
     assert((await text('status-mode')) === 'Control Mode', 'status bar not updated');
     assert((await page.getByTestId('transform-tools').count()) === 0, 'transform tools still shown');
