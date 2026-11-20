@@ -33,6 +33,8 @@ interface BlueprintState {
   past: { label: string; data: BlueprintData }[];
   future: { label: string; data: BlueprintData }[];
   dirty: boolean;
+  /** Build History events recorded since the last Save (they are lost if the user leaves without saving). */
+  unsavedEvents: number;
   /** Entries dropped by the load-time migration. */
   droppedOnLoad: number;
 
@@ -62,6 +64,7 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
   past: [],
   future: [],
   dirty: false,
+  unsavedEvents: 0,
   droppedOnLoad: 0,
 
   load: (projectId, raw) => {
@@ -69,10 +72,10 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
     const { blueprint, dropped } = normalizeBlueprint(raw, now);
     if (dropped > 0) log.warning('blueprint', `Blueprint: ${dropped} invalid saved entr${dropped === 1 ? 'y was' : 'ies were'} skipped while loading.`);
     if (blueprint.history.length === 0) blueprint.history = stamp([{ type: 'blueprint.created', component: 'Robot Blueprint', previous: '', next: '', note: raw ? 'Blueprint loaded.' : 'Blueprint started for this project.' }], now);
-    set({ projectId, blueprint, stored: raw !== undefined && raw !== null, past: [], future: [], dirty: false, droppedOnLoad: dropped });
+    set({ projectId, blueprint, stored: raw !== undefined && raw !== null, past: [], future: [], dirty: false, unsavedEvents: 0, droppedOnLoad: dropped });
   },
 
-  close: () => set({ projectId: null, blueprint: emptyBlueprint(new Date(0).toISOString()), stored: false, past: [], future: [], dirty: false, droppedOnLoad: 0 }),
+  close: () => set({ projectId: null, blueprint: emptyBlueprint(new Date(0).toISOString()), stored: false, past: [], future: [], dirty: false, unsavedEvents: 0, droppedOnLoad: 0 }),
 
   apply: (label, next, events = []) => {
     const state = get();
@@ -83,13 +86,19 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
       past: [...state.past, { label, data: dataOf(state.blueprint) }].slice(-UNDO_LIMIT),
       future: [],
       dirty: true,
+      unsavedEvents: state.unsavedEvents + events.length,
     });
   },
 
   record: (events) => {
     const state = get();
     if (!state.projectId || events.length === 0) return;
-    set({ blueprint: { ...state.blueprint, history: [...state.blueprint.history, ...stamp(events, new Date().toISOString())].slice(-HISTORY_LIMIT) } });
+    // History is part of the project: new events make the project unsaved, so leaving warns instead of silently dropping them.
+    set({
+      blueprint: { ...state.blueprint, history: [...state.blueprint.history, ...stamp(events, new Date().toISOString())].slice(-HISTORY_LIMIT) },
+      dirty: true,
+      unsavedEvents: state.unsavedEvents + events.length,
+    });
   },
 
   undo: () => {
@@ -102,6 +111,7 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
       past: state.past.slice(0, -1),
       future: [{ label: last.label, data: dataOf(state.blueprint) }, ...state.future].slice(0, UNDO_LIMIT),
       dirty: true,
+      unsavedEvents: state.unsavedEvents + 1,
     });
     return last.label;
   },
@@ -116,6 +126,7 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
       past: [...state.past, { label: next.label, data: dataOf(state.blueprint) }].slice(-UNDO_LIMIT),
       future: state.future.slice(1),
       dirty: true,
+      unsavedEvents: state.unsavedEvents + 1,
     });
     return next.label;
   },
@@ -132,6 +143,7 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
         history: [...state.blueprint.history, ...stamp([{ type: 'snapshot.created', component: 'Blueprint', previous: '', next: name, note: '' }], now)].slice(-HISTORY_LIMIT),
       },
       dirty: true,
+      unsavedEvents: state.unsavedEvents + 1,
     });
   },
 
@@ -144,12 +156,20 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
     return true;
   },
 
-  markSaved: () => set({ dirty: false, stored: get().stored || hasUserContent(get().blueprint) }),
+  markSaved: () => set({ dirty: false, unsavedEvents: 0, stored: get().stored || needsStoring(get().blueprint) }),
 }));
 
-/** What to store on the project: undefined keeps old projects without a blueprint field. */
+/** Blueprint content or recorded design history (the automatic "Blueprint started" entry alone does not count). */
+function needsStoring(b: Blueprint): boolean {
+  return hasUserContent(b) || b.history.some((e) => e.type !== 'blueprint.created');
+}
+
+/**
+ * What to store on the project. Undefined keeps an untouched old project without a blueprint field;
+ * once there is blueprint content or recorded history, it is always stored (history is never dropped on Save).
+ */
 export function blueprintForSave(): Blueprint | undefined {
   const { blueprint, stored, projectId } = useBlueprintStore.getState();
   if (!projectId) return undefined;
-  return stored || hasUserContent(blueprint) ? structuredClone(blueprint) : undefined;
+  return stored || needsStoring(blueprint) ? structuredClone(blueprint) : undefined;
 }

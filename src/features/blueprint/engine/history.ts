@@ -16,7 +16,7 @@ export function compareData(a: BlueprintData, b: BlueprintData, nameOf: (ref: st
   for (const key of new Set([...aMap.keys(), ...bMap.keys()])) {
     const x = aMap.get(key);
     const y = bMap.get(key);
-    if (x?.partId === y?.partId && x?.quantity === y?.quantity) continue;
+    if (x?.partId === y?.partId && x?.quantity === y?.quantity && x?.driverMappingId === y?.driverMappingId) continue;
     mappings.push({ target: nameOf(key), before: x ? `${x.snapshot.name} × ${x.quantity}` : null, after: y ? `${y.snapshot.name} × ${y.quantity}` : null });
   }
   const aHw = new Map(a.hardware.map((h) => [h.id, h]));

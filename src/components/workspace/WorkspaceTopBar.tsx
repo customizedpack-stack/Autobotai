@@ -58,6 +58,7 @@ function SaveState() {
   const sceneDirty = useSceneStore((s) => s.dirty);
   const blueprintDirty = useBlueprintStore((s) => s.dirty);
   const dirty = sceneDirty || blueprintDirty;
+  const unsavedEvents = useBlueprintStore((s) => s.unsavedEvents);
   const projectId = useSceneStore((s) => s.projectId);
   const savedAt = useProjectStore((s) => (projectId ? s.projects[projectId]?.savedAt ?? null : null));
   const [, tick] = useState(0);
@@ -66,9 +67,19 @@ function SaveState() {
     return () => window.clearInterval(timer);
   }, []);
   return (
-    <span className="hidden items-center gap-1.5 text-[11px] whitespace-nowrap text-muted sm:flex" data-testid="save-state">
+    <span
+      className="hidden items-center gap-1.5 text-[11px] whitespace-nowrap text-muted sm:flex"
+      data-testid="save-state"
+      data-unsaved-history={unsavedEvents}
+      title={dirty ? [sceneDirty && 'Robot design changed', blueprintDirty && 'Robot Blueprint changed', unsavedEvents > 0 && `${unsavedEvents} Build History event(s) not saved`].filter(Boolean).join(' · ') + '. Click Save to keep them.' : undefined}
+    >
       <span className={cn('h-1.5 w-1.5 rounded-full', dirty ? 'bg-warn' : 'bg-ok')} />
       {dirty ? 'Unsaved changes' : `Saved ${formatRelativeTime(savedAt).toLowerCase()}`}
+      {dirty && unsavedEvents > 0 && (
+        <span className="rounded bg-warn/15 px-1 text-[10px] text-warn" data-testid="unsaved-history">
+          {unsavedEvents} history
+        </span>
+      )}
     </span>
   );
 }

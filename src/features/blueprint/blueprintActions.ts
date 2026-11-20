@@ -70,6 +70,28 @@ export function setMappingQuantity(mappingId: string, quantity: number): void {
   apply('Change quantity', { ...d, mappings: d.mappings.map((x) => (x.id === mappingId ? { ...x, quantity: q } : x)) }, [{ type: 'bom.updated', component: targetName(m.targetKind, m.targetId), previous: `Quantity ${m.quantity}`, next: `Quantity ${q}`, note: '' }]);
 }
 
+/** Assign a motor mapping to the mapping of the motor driver it is wired to (null clears the assignment). */
+export function setMotorDriver(motorMappingId: string, driverMappingId: string | null): boolean {
+  const d = data();
+  const motor = d.mappings.find((m) => m.id === motorMappingId && m.snapshot.role === 'dc-gearmotor');
+  const driver = driverMappingId ? d.mappings.find((m) => m.id === driverMappingId && m.snapshot.role === 'dual-motor-driver') : null;
+  if (!motor || (driverMappingId && !driver) || (motor.driverMappingId ?? null) === driverMappingId) return false;
+  const nameOfMapping = (id: string | undefined) => {
+    const m = id ? d.mappings.find((x) => x.id === id) : undefined;
+    return m ? targetName(m.targetKind, m.targetId) : '';
+  };
+  const mappings = d.mappings.map((m) => {
+    if (m.id !== motorMappingId) return m;
+    const next = { ...m };
+    if (driverMappingId) next.driverMappingId = driverMappingId;
+    else delete next.driverMappingId;
+    return next;
+  });
+  const motorName = targetName(motor.targetKind, motor.targetId);
+  apply(`Assign driver of ${motorName}`, { ...d, mappings }, [{ type: 'motor.assigned', component: motorName, previous: nameOfMapping(motor.driverMappingId) || 'Not assigned', next: nameOfMapping(driverMappingId ?? undefined) || 'Not assigned', note: '' }]);
+  return true;
+}
+
 export function setMappingRequired(mappingId: string, required: boolean): void {
   const d = data();
   const m = d.mappings.find((x) => x.id === mappingId);

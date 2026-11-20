@@ -206,8 +206,11 @@ describe('Compatibility engine', () => {
     const blank = { ...part('pololu-1101'), id: 'test-blank-motor', mpn: 'BLANK', specs: { shaftDiameterMm: 3, shaftType: 'D' as const } };
     mapPart('component', objectId('Left Motor'), blank);
     const unknown = checks().filter((c) => c.mappingIds.includes(data().mappings.find((m) => m.targetId === objectId('Left Motor'))!.id) && c.area === 'motor-driver');
-    expect(unknown.every((c) => c.status === 'unknown' || c.id === 'driver:channels')).toBe(true);
-    expect(unknown.some((c) => c.status === 'compatible' && c.id !== 'driver:channels')).toBe(false);
+    // Channel-capacity checks do not use the motor's electrical data; every voltage / current check must be unknown.
+    const electrical = unknown.filter((c) => c.id.startsWith('mv:') || c.id.startsWith('mc:'));
+    expect(electrical).toHaveLength(2);
+    expect(electrical.every((c) => c.status === 'unknown')).toBe(true);
+    expect(unknown.some((c) => c.status === 'compatible' && c.id !== 'driver:channels' && !c.id.startsWith('driverload:'))).toBe(false);
   });
 
   it('flags GPIO overvoltage for a 5 V HC-SR04 on a 3.3 V ESP32 and accepts the ToF sensor', () => {

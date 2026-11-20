@@ -29,6 +29,8 @@ export interface PartMapping {
   required: boolean;
   note: string;
   mappedAt: string;
+  /** Motors only: the mapping id of the motor driver this motor is wired to (explicit assignment). Absent = not assigned. */
+  driverMappingId?: string;
 }
 
 /** Electronics that the 3D model does not contain (driver, battery, regulator…). Not part of the robot model. */
@@ -96,6 +98,7 @@ export type HistoryEventType =
   | 'hardware.removed'
   | 'joint.changed'
   | 'motor.changed'
+  | 'motor.assigned'
   | 'sensor.changed'
   | 'wiring.updated'
   | 'program.changed'

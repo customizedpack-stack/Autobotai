@@ -1,6 +1,8 @@
 # Phase 9 Report — Real-World Robotics Blueprint
 
-Date: 2026-11-20. Branch: `phase-9-blueprint` (based on `phase-8-camera`). Version: 0.9.0.
+Date: 2026-11-20. Branch: `phase-9-blueprint` (based on `phase-8-camera`), with the final corrections on `phase-9-corrections`. Version: 0.9.0.
+
+> **Final corrections (2026-11-20):** each motor is now checked against its own assigned motor driver, and unassigned motors are Unknown when there are several drivers. Build History events now mark the project unsaved, appear in the leave warning, and are saved with the project. The latest gate: 430/430 unit tests and 12/12 e2e suites with 214/214 steps, all commands exit 0. Details: `docs/PHASE-9-FINAL-CORRECTIONS.md`.
 
 ## Summary
 
@@ -22,7 +24,7 @@ None of this changes the 3D model, the physics, the drive, the cameras, the sens
 | 0. Architecture inspection and assessment | Done. The assessment is in Part A of the architecture document. |
 | 1. Real-World Parts Library | Done. There are 14 curated parts across all 7 categories, and every entry has a source and a check date (see "Parts library and data sources" below). The catalog is loaded lazily, validated, deduplicated, and its links are sanitized. |
 | 2. Mapping virtual components to real parts | Done. The Real Parts tab supports search, a category filter, select, replace, remove, quantity and required/optional, comparing up to 3 alternatives, documentation links and missing-information lists. It also shows where the 3D model differs from the real part. Nothing is mapped automatically. Each mapping stores a snapshot of the part data. |
-| 3. Compatibility engine | Done. It covers motors with the driver, the controller with the driver logic and the sensors (including GPIO overvoltage), power (pack voltage, regulator input, current budget, stall current) and mechanics (shaft and bore, wheel size, mounting, part size, clearance). Unknown is never shown as Compatible. |
+| 3. Compatibility engine | Done. Each motor is checked against its own assigned driver (final corrections). It covers motors with the driver, the controller with the driver logic and the sensors (including GPIO overvoltage), power (pack voltage, regulator input, current budget, stall current) and mechanics (shaft and bore, wheel size, mounting, part size, clearance). Unknown is never shown as Compatible. |
 | 4. BOM | Done. It updates live, counts packs (for example, a wheel pair covers 2 wheels), uses verified list prices only, and shows a total only when every line is priced. It supports extra hardware, required and optional lines, CSV export (with a guard against spreadsheet formulas) and Print / Save as PDF. A price notice is included. |
 | 5. Wiring records | Done. Wires can be edited, and standard wires can be added for the mapped parts. Eight kinds of problems are flagged. The overview diagram draws only fully specified, checked wires. The list is labeled "not a verified schematic" and is kept separate from the 3D model. |
 | 6. Build Guide | Done. It has 14 sections and stable step ids. Each step has one of four statuses and a user note. Steps are never completed automatically, and statuses survive when the guide is regenerated. |
@@ -40,9 +42,9 @@ None of this changes the 3D model, the physics, the drive, the cameras, the sens
 |---|---|
 | `npm run typecheck` | Passed (no errors) |
 | `npm run lint` (oxlint) | Passed (no warnings or errors) |
-| `npm run test` (Vitest) | **420 / 420** tests in 43 files. This is the 395 earlier tests plus 25 new Phase 9 tests. No test was weakened or deleted. |
+| `npm run test` (Vitest) | **420 / 420** tests in 43 files. This is the 395 earlier tests plus 25 new Phase 9 tests. No test was weakened or deleted. After the final corrections: **430 / 430** in 44 files. |
 | `npm run build` | Passed. The Blueprint pane and the parts catalog are separate chunks that load only when the Blueprint is opened. |
-| `npm run test:e2e` | **12 / 12 suites, 209 / 209 steps.** Workspace 21, corrections 20, builder 21, control 17, code-studio 20, physics 15, sensors 11, environment 19, verification 13, drive-compatibility 9, camera 18, and blueprint 25 (new). |
+| `npm run test:e2e` | **12 / 12 suites, 209 / 209 steps** (after the final corrections: **214 / 214**, with the blueprint suite at 30 steps). Workspace 21, corrections 20, builder 21, control 17, code-studio 20, physics 15, sensors 11, environment 19, verification 13, drive-compatibility 9, camera 18, and blueprint 25 (new). |
 
 The new unit tests cover these areas:
 
@@ -116,7 +118,7 @@ The new unit tests cover these areas:
 - **The pin budget is approximate.** It counts IN1, IN2 and PWM per driver channel plus STBY, and two I²C pins. It is only checked when the board states its pin count; the ESP32-DevKitC pin count is not stated, so for it the result is Unknown.
 - **Hardware items have no 3D shape.** Blueprint-only hardware items (driver, battery, regulator) do not appear in the 3D model, by design.
 - **The wiring diagram is a simple two-column overview,** not a schematic editor.
-- **Build History needs a Save.** History events recorded while the robot model is edited are saved with the next Save. If you leave without saving, they are lost together with the model edits.
+- **Build History needs a Save.** Fixed in the final corrections: history events now mark the project unsaved, the leave dialog warns about them (Cancel / Discard / Save and leave), and Save always writes them.
 - **Prices.** Prices are single-item manufacturer list prices on 2026-11-20 in US dollars. They are not live, and availability is never claimed.
 
 ## Parts library and data sources

@@ -300,6 +300,89 @@ try {
     await shot('22-camera-monitor');
   });
 
+  // ── Phase 9 final corrections ──
+  await step('C1. A second motor driver makes unassigned motors Unknown (never Compatible)', async () => {
+    await page.getByTestId('mode-blueprint').click();
+    await page.getByTestId('blueprint-pane').waitFor();
+    await tab('parts');
+    await page.getByTestId('hardware-role').selectOption('driver');
+    await page.getByTestId('add-hardware').click();
+    await page.getByTestId('part-picker').waitFor();
+    await page.getByTestId('pick-pololu-713').click();
+    await row('Motor driver 2').locator('[data-testid^="vc-part-"]').waitFor();
+    assert((await row('Left Motor').locator('[data-testid^="driver-unassigned-"]').count()) === 1, 'left motor not flagged');
+    await tab('compatibility');
+    const assign = page.locator('[data-testid^="compat-check-assign:"]');
+    assert((await assign.count()) === 2, `assign checks ${await assign.count()}`);
+    assert((await assign.evaluateAll((els) => els.every((e) => e.dataset.status === 'unknown'))), 'assignment not unknown');
+    assert((await page.locator('[data-testid^="compat-check-mv:"]').count()) === 0, 'motor voltage checked without an assignment');
+    await shot('c1-two-drivers-unassigned');
+  });
+
+  await step('C2. Assign each motor to its own driver; each is checked against that driver', async () => {
+    await tab('parts');
+    await row('Left Motor').locator('[data-testid^="driver-of-"]').selectOption({ label: 'Motor driver (TB6612FNG Dual Motor Driver Carrier)' });
+    await row('Right Motor').locator('[data-testid^="driver-of-"]').selectOption({ label: 'Motor driver 2 (TB6612FNG Dual Motor Driver Carrier)' });
+    assert((await page.locator('[data-testid^="driver-unassigned-"]').count()) === 0, 'still unassigned');
+    await tab('compatibility');
+    assert((await page.locator('[data-testid^="compat-check-assign:"]').count()) === 0, 'assign checks left');
+    const mv = page.locator('[data-testid^="compat-check-mv:"]');
+    assert((await mv.count()) === 2, 'voltage checks');
+    const titles = await mv.allTextContents();
+    assert(titles.some((t) => t.includes('assigned: Motor driver)')) && titles.some((t) => t.includes('assigned: Motor driver 2)')), titles.join(' | '));
+    assert((await page.locator('[data-testid^="compat-check-driverload:"][data-status="compatible"]').count()) === 2, 'per-driver capacity');
+    await shot('c2-motors-assigned');
+  });
+
+  await step('C3. Unsaved Build History: indicator, leave warning, Cancel keeps you in the workspace', async () => {
+    assert(Number(await page.getByTestId('save-state').getAttribute('data-unsaved-history')) > 0, 'unsaved history count');
+    await page.getByTestId('unsaved-history').waitFor();
+    await tab('history');
+    await page.getByTestId('history-unsaved').waitFor();
+    await page.getByRole('button', { name: 'Back to dashboard' }).click();
+    await page.getByTestId('unsaved-history-warning').waitFor();
+    await shot('c3-leave-warning');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.waitForTimeout(300);
+    assert(await page.getByTestId('workspace').isVisible(), 'left the workspace after Cancel');
+    assert((await page.getByTestId('save-state').textContent()).includes('Unsaved'), 'Cancel discarded the changes');
+  });
+
+  await step('C4. Save and leave keeps the history; reopening shows it with nothing unsaved', async () => {
+    await page.getByRole('button', { name: 'Back to dashboard' }).click();
+    await page.getByRole('button', { name: 'Save and leave' }).click();
+    await page.getByRole('link', { name: 'Open Blueprint Bot' }).waitFor();
+    await page.getByRole('link', { name: 'Open Blueprint Bot' }).click();
+    await page.getByTestId('workspace').waitFor();
+    assert((await page.getByTestId('unsaved-history').count()) === 0, 'unsaved after reopening');
+    await page.getByTestId('mode-blueprint').click();
+    await page.getByTestId('blueprint-pane').waitFor();
+    await tab('history');
+    assert((await page.locator('[data-testid="history-event"][data-type="motor.assigned"]').count()) === 2, 'assignment history lost');
+    await tab('parts');
+    assert((await page.locator('[data-testid^="driver-unassigned-"]').count()) === 0, 'assignments lost');
+  });
+
+  await step('C5. A history-only change (saving a program) is flagged as unsaved and saved with Save', async () => {
+    await page.getByTestId('mode-code').click();
+    await page.getByTestId('code-studio').waitFor();
+    await page.getByRole('button', { name: /Blueprint Drive Test/ }).first().click().catch(() => {});
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('End');
+    await page.keyboard.insertText('\n// tuned');
+    await page.getByTestId('save-program').click();
+    await page.getByTestId('unsaved-history').waitFor();
+    await page.getByTestId('save').click();
+    await page.getByTestId('save-state').getByText(/Saved/).waitFor();
+    assert((await page.getByTestId('unsaved-history').count()) === 0, 'still unsaved after Save');
+    await page.reload();
+    await page.getByTestId('workspace').waitFor();
+    await page.getByTestId('mode-blueprint').click();
+    await page.getByTestId('blueprint-pane').waitFor();
+    await tab('history');
+    await page.locator('[data-testid="history-event"][data-type="program.changed"]').first().waitFor();
+  });
+
   await step('Layout: the Blueprint at 900 px and 600 px', async () => {
     await page.getByTestId('mode-blueprint').click();
     await page.getByTestId('blueprint-pane').waitFor();
