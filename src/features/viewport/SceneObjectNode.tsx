@@ -36,6 +36,8 @@ export interface SceneTreeContext {
   selectedId: string | null;
   selectedJointId: string | null;
   hoveredId: string | null;
+  /** Phase 11: part highlighted by Reverse Engineering inspection (read-only). */
+  inspectedId?: string | null;
   dropTargetId: string | null;
   shadows: boolean;
   showJoints: boolean;
@@ -61,6 +63,7 @@ export const SceneObjectNode = memo(function SceneObjectNode({ id, ctx }: { id: 
   const selected = id === ctx.selectedId;
   const hovered = id === ctx.hoveredId;
   const dropTarget = id === ctx.dropTargetId;
+  const inspected = id === ctx.inspectedId;
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
@@ -93,11 +96,11 @@ export const SceneObjectNode = memo(function SceneObjectNode({ id, ctx }: { id: 
             color={object.color}
             roughness={0.5}
             metalness={0.1}
-            emissive={selected ? '#3B82F6' : dropTarget ? '#F59E0B' : '#000000'}
-            emissiveIntensity={selected ? 0.18 : dropTarget ? 0.25 : 0}
+            emissive={inspected ? '#A855F7' : selected ? '#3B82F6' : dropTarget ? '#F59E0B' : '#000000'}
+            emissiveIntensity={inspected ? 0.35 : selected ? 0.18 : dropTarget ? 0.25 : 0}
           />
-          {(selected || hovered || dropTarget) && (
-            <Edges threshold={20} color={dropTarget ? '#F59E0B' : selected ? '#60A5FA' : '#94A3B8'} lineWidth={selected || dropTarget ? 2 : 1} />
+          {(selected || hovered || dropTarget || inspected) && (
+            <Edges threshold={20} color={inspected ? '#C084FC' : dropTarget ? '#F59E0B' : selected ? '#60A5FA' : '#94A3B8'} lineWidth={selected || dropTarget || inspected ? 2 : 1} />
           )}
         </mesh>
       )}

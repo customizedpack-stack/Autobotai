@@ -67,6 +67,7 @@ export function CameraRig() {
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   const viewRequest = useViewportStore((s) => s.viewRequest);
   const frameRequest = useViewportStore((s) => s.frameRequest);
+  const focusRequest = useViewportStore((s) => s.focusRequest);
   const anim = useRef<Animation | null>(null);
   const motion = useRef({ pos: new Vector3(), target: new Vector3(), moving: false, still: 0 });
   const followed = useRef<Vec3 | null>(null);
@@ -100,6 +101,20 @@ export function CameraRig() {
     start(pos, target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameRequest, controls]);
+
+  // Frame one component (Phase 11 inspection), keeping the current viewing direction.
+  useEffect(() => {
+    if (!focusRequest || !controls) return;
+    const objects = liveObjects();
+    if (!objects.some((o) => o.id === focusRequest.id)) return;
+    const bounds = worldSceneBounds(objects.map((o) => ({ ...o, visible: o.id === focusRequest.id })));
+    const target = new Vector3(...bounds.center);
+    const direction = camera.position.clone().sub(controls.target);
+    if (direction.lengthSq() < 1e-6) direction.set(0.62, 0.48, 0.62);
+    direction.normalize();
+    start(target.clone().add(direction.multiplyScalar(framingDistance(bounds.radius, fov))), target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest, controls]);
 
   // A user drag interrupts a running animation.
   useEffect(() => {

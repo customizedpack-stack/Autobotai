@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Monitor, X } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -31,6 +31,8 @@ import { useViewportStore } from '../../stores/viewportStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { log } from '../../utils/logger';
 import { NotFoundPage } from './NotFoundPage';
+import { useLearningSession } from '../../features/learning/store/learningSession';
+import { BeginnerGuide } from '../../features/learning/components/BeginnerGuide';
 
 /** Slim, dismissible hint on narrow screens. It never blocks the workspace. */
 function SmallScreenBanner() {
@@ -49,6 +51,8 @@ function SmallScreenBanner() {
 
 // Code Studio's editors (Blockly, CodeMirror) load only when Code Studio is opened.
 const CodeStudioPane = lazy(() => import('../../features/code-studio/components/CodeStudioPane'));
+// Phase 11: the tutorial / Reverse Engineering panel loads only when it is used.
+const LearningPanel = lazy(() => import('../../features/learning/components/LearningPanel'));
 // The Robot Blueprint (Phase 9) and its parts catalog load only when the Blueprint is opened.
 const BlueprintPane = lazy(() => import('../../features/blueprint/components/BlueprintPane'));
 
@@ -85,6 +89,21 @@ export default function WorkspacePage() {
   const confirmOnLeave = useSettingsStore((s) => s.confirmUnsavedOnLeave);
   const compact = useMediaQuery(COMPACT_WORKSPACE_QUERY);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const tutorialParam = searchParams.get('tutorial');
+  const inspectParam = searchParams.get('inspect') === '1';
+  const learningActive = useLearningSession((s) => s.panelOpen && (s.inspecting || s.tutorialId !== null));
+  // Reverse Engineering is read-only: the editing panels do not take input while inspecting.
+  const inspecting = useLearningSession((s) => s.inspecting);
+
+  // Phase 11: start the tutorial or Reverse Engineering session for this project (never changes project data).
+  useEffect(() => {
+    if (!projectId) return;
+    const reverse = useSettingsStore.getState().experienceMode === 'reverse';
+    useLearningSession.getState().begin(projectId, { tutorialId: tutorialParam, inspect: inspectParam || (reverse && !tutorialParam) });
+    if (inspectParam || (reverse && !tutorialParam)) useSelectionStore.getState().clear();
+  }, [projectId, tutorialParam, inspectParam]);
+  useEffect(() => () => useLearningSession.getState().end(), []);
 
   // One blocker guards every route change: in-app links, the back arrow and
   // browser Back / Forward. Tab close and reload are covered by beforeunload.
@@ -157,8 +176,11 @@ export default function WorkspacePage() {
     <div className="flex h-full flex-col bg-app" data-testid="workspace" data-compact={compact}>
       <WorkspaceTopBar onExit={exit} onOpenSettings={() => setSettingsOpen(true)} />
       <SmallScreenBanner />
+      <BeginnerGuide />
       <div className="relative flex min-h-0 flex-1" data-testid="workspace-main">
-        <LeftPanel overlay={compact} />
+        <div className="contents" inert={inspecting} data-testid="left-panel-wrap">
+          <LeftPanel overlay={compact} />
+        </div>
         <div className="flex min-w-0 flex-1 flex-col">
           {environment && <EnvironmentToolbar />}
           {/* Code Studio: editor beside the SAME viewport element (it is never remounted when the mode changes). */}
@@ -187,7 +209,14 @@ export default function WorkspacePage() {
           </div>
           <BottomPanel />
         </div>
-        <RightPanel overlay={compact} />
+        {learningActive && ready && (
+          <Suspense fallback={null}>
+            <LearningPanel overlay={compact} />
+          </Suspense>
+        )}
+        <div className="contents" inert={inspecting} data-testid="right-panel-wrap">
+          <RightPanel overlay={compact} />
+        </div>
       </div>
       <StatusBar />
 

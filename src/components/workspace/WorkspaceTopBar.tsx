@@ -15,6 +15,9 @@ import {
   Undo2,
   Trees,
   ClipboardList,
+  GraduationCap,
+  MoreHorizontal,
+  ScanSearch,
 } from 'lucide-react';
 import { useBlueprintStore } from '../../features/blueprint/blueprintStore';
 import { EmergencyStopButton } from '../../features/hardware/components/EmergencyStopButton';
@@ -27,6 +30,8 @@ import { useRobotStateStore, type WorkspaceMode } from '../../stores/robotStateS
 import { useProjectStore } from '../../stores/projectStore';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useLearningSession } from '../../features/learning/store/learningSession';
 import { cn } from '../../utils/cn';
 import { formatRelativeTime } from '../../utils/format';
 import { Button, IconButton } from '../common/Button';
@@ -119,6 +124,11 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
   const togglePanel = useWorkspaceStore((s) => s.togglePanel);
   const physics = useSimulationStore((s) => s.engine === 'physics');
   const simulating = control && physics;
+  // Phase 11 Beginner Mode: the four core modes, the rest behind "More tools". Professional Mode is unchanged.
+  const beginner = useSettingsStore((s) => s.experienceMode === 'beginner');
+  const [moreTools, setMoreTools] = useState(false);
+  const CORE = ['build', 'control', 'code', 'simulate'];
+  const learning = useLearningSession();
   const isActive = (id: string) => (id === 'simulate' ? simulating : id === 'control' ? mode === 'control' && !physics : mode === id);
   const choose = (id: string) => {
     if (id === 'simulate') {
@@ -147,7 +157,7 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
       <SaveState />
 
       <nav className="mx-auto flex items-center rounded-md border border-line bg-app p-0.5" aria-label="Workspace mode">
-        {MODES.map((m) =>
+        {MODES.filter((m) => !beginner || moreTools || CORE.includes(m.id) || isActive(m.id)).map((m) =>
           m.phase ? (
             <span
               key={m.id}
@@ -177,7 +187,37 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
             </button>
           ),
         )}
+        {beginner && (
+          <button
+            type="button"
+            onClick={() => setMoreTools(!moreTools)}
+            aria-pressed={moreTools}
+            title={moreTools ? 'Show fewer tools' : 'More tools: Environment Editor and Robot Blueprint'}
+            aria-label={moreTools ? 'Show fewer tools' : 'More tools'}
+            data-testid="more-tools"
+            className="flex h-6 items-center rounded px-1.5 text-muted hover:text-ink"
+          >
+            <MoreHorizontal size={14} />
+          </button>
+        )}
       </nav>
+
+      {learning.tutorialId && (
+        <IconButton label={learning.panelOpen && !learning.inspecting ? 'Hide tutorial' : 'Show tutorial'} active={learning.panelOpen && !learning.inspecting} onClick={() => {
+          if (learning.inspecting) learning.setInspecting(false);
+          learning.setPanelOpen(!(learning.panelOpen && !learning.inspecting));
+        }} data-testid="toggle-tutorial">
+          <GraduationCap size={15} />
+        </IconButton>
+      )}
+      <IconButton
+        label={learning.inspecting ? 'Exit Reverse Engineering inspection' : 'Reverse Engineering: inspect this robot (read-only)'}
+        active={learning.inspecting}
+        onClick={() => learning.setInspecting(!learning.inspecting)}
+        data-testid="toggle-inspect"
+      >
+        <ScanSearch size={15} />
+      </IconButton>
 
       <EmergencyStopButton />
       <div className="flex items-center gap-0.5">
@@ -205,10 +245,11 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
         <div className="mx-1 h-5 w-px bg-line" />
         <Button
           size="sm"
-          variant={dirty ? 'primary' : 'secondary'}
+          variant={dirty && !learning.inspecting ? 'primary' : 'secondary'}
           icon={<Save size={13} />}
           onClick={() => saveCurrentProject()}
-          title="Save local draft (Ctrl+S)"
+          disabled={learning.inspecting}
+          title={learning.inspecting ? 'Read-only inspection: exit Reverse Engineering to save' : 'Save local draft (Ctrl+S)'}
           data-testid="save"
         >
           Save

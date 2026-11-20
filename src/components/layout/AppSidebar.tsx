@@ -1,26 +1,15 @@
 import { NavLink } from 'react-router-dom';
-import { Bot, FolderKanban, GraduationCap, LayoutDashboard, Lock, Plus, Users } from 'lucide-react';
+import { Bot, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 import { Logo } from '../common/Logo';
+import { ExperienceModeSelect } from '../../features/learning/components/ExperienceModeSelect';
+import { NAV } from './navigation';
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: ReactNode;
-}
-
-const NAV: readonly NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-  { to: '/projects', label: 'My Projects', icon: <FolderKanban size={16} /> },
-  { to: '/new', label: 'New Robot', icon: <Plus size={16} /> },
-];
-
-/** Modules from the master plan that are not built yet. Shown as roadmap, not as links. */
-const UPCOMING: readonly { label: string; phase: string; icon: ReactNode }[] = [
-  { label: 'AI Assistant', phase: 'Phase J', icon: <Bot size={16} /> },
-  { label: 'Learning Center', phase: 'Later', icon: <GraduationCap size={16} /> },
-  { label: 'Community', phase: 'Phase 8', icon: <Users size={16} /> },
+/** Modules that do not exist yet. Shown honestly, not as links. */
+const NOT_YET: readonly { label: string; icon: ReactNode }[] = [
+  { label: 'AI Assistant', icon: <Bot size={16} aria-hidden /> },
+  { label: 'Community', icon: <Users size={16} aria-hidden /> },
 ];
 
 export function AppSidebar() {
@@ -47,29 +36,22 @@ export function AppSidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="mt-2 px-4 text-[10.5px] font-semibold tracking-wider text-faint uppercase">Coming in later phases</div>
-      <ul className="flex flex-col gap-0.5 p-2" aria-label="Upcoming modules">
-        {UPCOMING.map((item) => (
-          <li
-            key={item.label}
-            className="flex h-8 cursor-default items-center gap-2.5 rounded-md px-2.5 text-[13px] text-faint"
-            title={`${item.label} arrives in ${item.phase}`}
-          >
+      <div className="mt-2 px-4 text-[10.5px] font-semibold tracking-wider text-faint uppercase">Not available yet</div>
+      <ul className="flex flex-col gap-0.5 p-2" aria-label="Modules not available yet">
+        {NOT_YET.map((item) => (
+          <li key={item.label} className="flex h-8 cursor-default items-center gap-2.5 rounded-md px-2.5 text-[13px] text-faint" title={`${item.label} is not part of AutoBotAI yet`}>
             {item.icon}
             <span className="flex-1">{item.label}</span>
-            <span className="flex items-center gap-1 text-[10px]">
-              <Lock size={10} />
-              {item.phase}
-            </span>
           </li>
         ))}
       </ul>
-      <div className="mt-auto border-t border-line p-4 text-[11px] text-faint">
-        Phase 4 · Code Studio
-        <br />
-        Open a robot and choose Code to program it.
-        <br />
-        Drafts are saved in this browser only.
+      <div className="mt-auto space-y-3 border-t border-line p-4">
+        <ExperienceModeSelect testId="sidebar-experience" />
+        <p className="text-[11px] text-faint">
+          Phase 11 · Learning platform
+          <br />
+          Drafts are saved in this browser only.
+        </p>
       </div>
     </aside>
   );

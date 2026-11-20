@@ -227,6 +227,8 @@ console.log("JS encoder updates", n > 5);
     await page.getByTestId('reset-robot').click();
     await page.waitForTimeout(400);
     await page.getByTestId('run-program').click();
+    // Phase 11: wait for THIS run to start first; the badge still shows the previous run's "Completed" for a moment.
+    await page.getByTestId('execution-status').filter({ hasText: /Preparing|Running/ }).waitFor({ timeout: 15000 });
     await page.getByTestId('execution-status').filter({ hasText: 'Completed' }).waitFor({ timeout: 30000 });
     const log = await page.getByTestId('program-log').innerText();
     const match = log.match(/stopped at = ([\d.]+)/);

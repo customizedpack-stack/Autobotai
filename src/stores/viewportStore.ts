@@ -21,6 +21,8 @@ interface ViewportState {
   viewRequest: ViewRequest | null;
   /** Increments when the camera should frame all objects. */
   frameRequest: number;
+  /** Phase 11: frame one component (Reverse Engineering inspection). */
+  focusRequest: { id: string; n: number } | null;
   showGrid: boolean;
   showAxes: boolean;
   showShadows: boolean;
@@ -35,6 +37,7 @@ interface ViewportState {
   dropPreview: DropPreview | null;
   requestView: (view: CameraView) => void;
   requestFrame: () => void;
+  requestFocus: (id: string) => void;
   /** Record which view the camera settled in (no camera move is requested). */
   setActiveView: (view: ActiveView) => void;
   toggleGrid: () => void;
@@ -55,6 +58,7 @@ export const useViewportStore = create<ViewportState>((set, get) => ({
   activeView: 'perspective',
   viewRequest: null,
   frameRequest: 0,
+  focusRequest: null,
   showGrid: true,
   showAxes: true,
   showShadows: true,
@@ -71,6 +75,7 @@ export const useViewportStore = create<ViewportState>((set, get) => ({
     bus.publish('viewport.viewChanged', { view });
   },
   requestFrame: () => set({ frameRequest: get().frameRequest + 1 }),
+  requestFocus: (id) => set({ focusRequest: { id, n: (get().focusRequest?.n ?? 0) + 1 } }),
   setActiveView: (view) => {
     if (get().activeView !== view) set({ activeView: view });
   },
