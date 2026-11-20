@@ -18,6 +18,11 @@ import { materializeTemplate } from './materialize';
  * Structural changes go through the C1 Robot Model Connector.
  */
 
+/** Unsaved robot design or Robot Blueprint changes (including Build History events) in the open project. */
+export function hasUnsavedProjectChanges(): boolean {
+  return useSceneStore.getState().dirty || useBlueprintStore.getState().dirty;
+}
+
 export function saveCurrentProject(): boolean {
   const scene = useSceneStore.getState();
   if (!scene.projectId) return false;

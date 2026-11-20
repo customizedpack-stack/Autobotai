@@ -17,7 +17,7 @@ import { closeCodeStudioSession, hasUnsavedPrograms, saveAllPrograms, unsavedPro
 import { useCodeStudioStore } from '../../features/code-studio/codeStudioStore';
 import { useBlueprintStore } from '../../features/blueprint/blueprintStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
-import { saveCurrentProject } from '../../features/projects/workspaceActions';
+import { hasUnsavedProjectChanges, saveCurrentProject } from '../../features/projects/workspaceActions';
 import { Viewport } from '../../features/viewport/Viewport';
 import { COMPACT_WORKSPACE_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { useRobotKeyboard } from '../../hooks/useRobotKeyboard';
@@ -90,7 +90,7 @@ export default function WorkspacePage() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       currentLocation.pathname !== nextLocation.pathname &&
-      (useSceneStore.getState().dirty || useBlueprintStore.getState().dirty || hasUnsavedPrograms()) &&
+      (hasUnsavedProjectChanges() || hasUnsavedPrograms()) &&
       useSettingsStore.getState().confirmUnsavedOnLeave,
   );
 
@@ -202,7 +202,7 @@ export default function WorkspacePage() {
             <Button
               variant="primary"
               onClick={() => {
-                const sceneSaved = !(useSceneStore.getState().dirty || useBlueprintStore.getState().dirty) || saveCurrentProject();
+                const sceneSaved = !hasUnsavedProjectChanges() || saveCurrentProject();
                 if (sceneSaved && saveAllPrograms()) blocker.proceed?.();
               }}
             >
@@ -212,6 +212,11 @@ export default function WorkspacePage() {
         }
       >
         <p className="text-[13px] text-muted">You have changes that are not saved to your local draft yet.</p>
+        {blocker.state === 'blocked' && useBlueprintStore.getState().unsavedEvents > 0 && (
+          <p className="mt-2 text-[12px] text-muted" data-testid="unsaved-history-warning">
+            {useBlueprintStore.getState().unsavedEvents} Build History event(s) are not saved yet. Discarding also discards them.
+          </p>
+        )}
         {blocker.state === 'blocked' && hasUnsavedPrograms() && (
           <p className="mt-2 text-[12px] text-muted" data-testid="unsaved-programs">
             Unsaved programs: {unsavedPrograms().map((p) => p.name).join(', ')}.

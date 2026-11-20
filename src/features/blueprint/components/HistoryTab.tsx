@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<HistoryEventType, string> = {
   'hardware.removed': 'Hardware item removed',
   'joint.changed': 'Joint changed',
   'motor.changed': 'Motor changed',
+  'motor.assigned': 'Motor driver assigned',
   'sensor.changed': 'Sensor changed',
   'wiring.updated': 'Wiring updated',
   'program.changed': 'Program changed',
@@ -40,6 +41,7 @@ export function HistoryTab({ view }: { view: BlueprintView }) {
   const [filter, setFilter] = useState<'all' | HistoryEventType>('all');
   const [comparing, setComparing] = useState<string | null>(null);
   const { history, snapshots } = view.blueprint;
+  const unsaved = useBlueprintStore((s) => s.unsavedEvents);
   const events = useMemo(() => [...history].reverse().filter((e) => filter === 'all' || e.type === filter), [history, filter]);
   const nameOf = (ref: string) => view.vcs.find((v) => v.ref === ref)?.name ?? ref;
   const snap = snapshots.find((s) => s.id === comparing);
@@ -47,6 +49,11 @@ export function HistoryTab({ view }: { view: BlueprintView }) {
 
   return (
     <div className="space-y-3" data-testid="history-tab">
+      {unsaved > 0 && (
+        <p className="rounded border border-warn/30 bg-warn/5 p-2 text-[11px] text-warn" data-testid="history-unsaved">
+          {unsaved} event(s) are not saved yet. Click Save in the top bar to keep them; leaving without saving asks first.
+        </p>
+      )}
       <Section
         title={`Versions (${snapshots.length})`}
         testId="history-snapshots"
