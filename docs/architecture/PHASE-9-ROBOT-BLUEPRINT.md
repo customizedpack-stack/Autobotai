@@ -61,7 +61,7 @@ The editable copy of the model is held in `sceneStore`. Every change goes throug
 
 ```text
 version: 1, createdAt
-mappings[]   { id, targetKind: component|hardware, targetId, partId, snapshot, quantity, required, note, mappedAt }
+mappings[]   { id, targetKind: component|hardware, targetId, partId, snapshot, quantity, required, note, mappedAt, driverMappingId? }
 hardware[]   { id, role, name }                       (blueprint-only electronics)
 bomExtras[]  { id, name, quantity, required, note, partId|null, snapshot|null }
 wiring[]     { id, controllerPin, componentRef, componentPin, interface, voltage|null, direction, sourceRef, notes }
@@ -82,10 +82,16 @@ The migration follows these rules:
 
 The checks are grouped into four areas:
 
-- **Motor and driver.**
-  - The total number of motors is compared with the number of driver channels.
-  - The motor's rated voltage is compared with the driver's motor-voltage range: above the maximum is incompatible, below the minimum is a warning.
-  - The motor's stall current is compared with the driver current: above the peak is incompatible, above the continuous rating is a warning.
+- **Motor and driver** (updated in the final corrections).
+  - The total number of motors is compared with the total number of driver channels.
+  - Each motor is checked against **its own assigned driver**. The assignment is stored on the motor mapping as `driverMappingId` and chosen with the "Driver" selector in Real Parts.
+    - With exactly one mapped driver, an unassigned motor uses that driver, and the check title says "the only mapped driver".
+    - With two or more drivers, an unassigned motor gets an **Unknown** "driver not assigned" check and no voltage or current check. It is never guessed.
+    - If the assigned driver was removed, the motor gets an Unknown "no longer mapped" check.
+  - The motor's rated voltage is compared with its driver's motor-voltage range: above the maximum is incompatible, below the minimum is a warning.
+  - The motor's stall current is compared with its driver: above the peak is incompatible, above the continuous rating is a warning.
+  - Each driver's channel capacity is compared with the motors assigned to it (`driverload:` checks).
+  - Power checks (battery against motor, battery against driver) run for every motor and every driver.
 - **Controller, driver logic and sensors.**
   - The controller logic voltage is compared with the driver logic range.
   - The sensor interfaces must be offered by the controller.
@@ -104,6 +110,15 @@ The checks are grouped into four areas:
   - Ground clearance is always Unknown, because mounting heights are not modeled.
 
 Every warning and incompatibility includes a reason. A check is never Compatible unless all of its inputs are known.
+
+### Build History and saving (updated in the final corrections)
+
+Every recorded event, whether from a model change, a Code Studio program change, a completed run or a blueprint action, marks the project as unsaved and increases `unsavedEvents`. The top bar shows the "Unsaved changes" indicator with an "N history" badge, and the Build History tab shows a banner.
+
+- **Leaving.** Leaving the workspace with unsaved changes opens the existing dialog with Cancel, "Discard changes and leave" and "Save and leave", and the dialog states how many history events are unsaved. Closing or reloading the tab triggers the browser's warning.
+- **What Save writes.** Save writes the blueprint whenever it has content or recorded history; only the automatic "Blueprint started" entry is not enough to create the field.
+- **No save loop.** Loading a project does not mark it unsaved, and saving records no history event.
+- **Old projects.** An untouched old project still saves without a `blueprint` field.
 
 ### Wiring
 
