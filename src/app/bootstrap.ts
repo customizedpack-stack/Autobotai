@@ -4,6 +4,7 @@
  */
 import { connectBlueprintHistory } from '../features/blueprint/blueprintHistory';
 import { connectProgramStore } from '../features/code-studio/storage/programStore';
+import { connectHardwareRuntime } from '../features/hardware/connectionManager';
 import { connectCommandBus } from '../features/controls/commandBus';
 import { connectRobotModelConnector } from '../features/robot-model/robotModelConnector';
 import { connectConsoleToBus } from '../stores/consoleStore';
@@ -13,3 +14,4 @@ connectRobotModelConnector();
 connectCommandBus();
 connectProgramStore();
 connectBlueprintHistory();
+connectHardwareRuntime();

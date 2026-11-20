@@ -7,6 +7,8 @@ export interface BlueprintDiff {
   extras: { name: string; change: 'added' | 'removed' | 'changed' }[];
   wiring: { added: number; removed: number; changed: number };
   steps: { id: string; before: string; after: string }[];
+  /** Phase 10: the hardware profile or calibration changed. */
+  hardwareProfile: boolean;
 }
 
 export function compareData(a: BlueprintData, b: BlueprintData, nameOf: (ref: string) => string = (r) => r): BlueprintDiff {
@@ -45,9 +47,9 @@ export function compareData(a: BlueprintData, b: BlueprintData, nameOf: (ref: st
     const after = b.guide.steps[id]?.status ?? 'not-started';
     if (before !== after) steps.push({ id, before, after });
   }
-  return { mappings, hardware, extras, wiring, steps };
+  return { mappings, hardware, extras, wiring, steps, hardwareProfile: JSON.stringify(a.hardwareProfile ?? null) !== JSON.stringify(b.hardwareProfile ?? null) };
 }
 
 export function isEmptyDiff(d: BlueprintDiff): boolean {
-  return d.mappings.length + d.hardware.length + d.extras.length + d.wiring.added + d.wiring.removed + d.wiring.changed + d.steps.length === 0;
+  return d.mappings.length + d.hardware.length + d.extras.length + d.wiring.added + d.wiring.removed + d.wiring.changed + d.steps.length === 0 && !d.hardwareProfile;
 }

@@ -52,7 +52,7 @@ interface BlueprintState {
 }
 
 export function dataOf(b: Blueprint | BlueprintData): BlueprintData {
-  return { mappings: b.mappings, hardware: b.hardware, bomExtras: b.bomExtras, wiring: b.wiring, guide: b.guide, bomGeneratedAt: b.bomGeneratedAt };
+  return { mappings: b.mappings, hardware: b.hardware, bomExtras: b.bomExtras, wiring: b.wiring, guide: b.guide, bomGeneratedAt: b.bomGeneratedAt, hardwareProfile: b.hardwareProfile ?? null };
 }
 
 const stamp = (events: HistoryInput[], now: string): HistoryEvent[] => events.map((e) => ({ ...e, id: createId('bhe'), timestamp: now }));

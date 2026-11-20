@@ -16,6 +16,7 @@ import { endControlSession } from '../../features/controls/controlSession';
 import { closeCodeStudioSession, hasUnsavedPrograms, saveAllPrograms, unsavedPrograms } from '../../features/code-studio/programActions';
 import { useCodeStudioStore } from '../../features/code-studio/codeStudioStore';
 import { useBlueprintStore } from '../../features/blueprint/blueprintStore';
+import { disconnectHardware } from '../../features/hardware/connectionManager';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { hasUnsavedProjectChanges, saveCurrentProject } from '../../features/projects/workspaceActions';
 import { Viewport } from '../../features/viewport/Viewport';
@@ -115,6 +116,8 @@ export default function WorkspacePage() {
       endControlSession();
       closeCodeStudioSession();
       useSceneStore.getState().closeProject();
+      // Phase 10: leaving the workspace disconnects any hardware (stop and disarm first).
+      void disconnectHardware('The project was closed.');
       useBlueprintStore.getState().close();
       useSelectionStore.getState().clear();
       document.body.style.cursor = '';

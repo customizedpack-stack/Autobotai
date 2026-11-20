@@ -42,6 +42,23 @@ interface Subscription {
   stop: () => void;
 }
 
+/**
+ * Phase 10: while a program runs on the Physical Hardware target, sensor requests
+ * are answered from the real robot (features/hardware) instead of the simulator.
+ * Only what the physical robot actually has is offered; everything else is refused
+ * with a clear message (no simulated value is ever passed off as physical).
+ */
+export interface PhysicalSensorOverride {
+  list(): unknown;
+  read(sensorId: string, type: string | undefined): unknown;
+}
+
+let physicalOverride: PhysicalSensorOverride | null = null;
+
+export function setPhysicalSensorOverride(override: PhysicalSensorOverride | null): void {
+  physicalOverride = override;
+}
+
 export class SandboxSensorBridge {
   private readonly sessionId: string;
   private readonly projectId: string | null;
@@ -71,6 +88,17 @@ export class SandboxSensorBridge {
     try {
       if (this.disposed) throw new SensorApiError('The program is no longer running.');
       if (currentProjectId() !== this.projectId) throw new SensorApiError('The robot project changed. Run the program again.');
+      if (physicalOverride) {
+        if (op === 'sensor.list') {
+          this.countRead();
+          return Promise.resolve(physicalOverride.list());
+        }
+        if (op === 'sensor.read') {
+          this.countRead();
+          return Promise.resolve(physicalOverride.read(args.sensorId as string, args.type as string | undefined));
+        }
+        throw new SensorApiError(`${op.replace('sensor.', '')}() is not available on the physical robot in this version. Use read() in a loop with wait().`);
+      }
       switch (op) {
         case 'sensor.list':
           this.countRead();

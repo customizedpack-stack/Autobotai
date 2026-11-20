@@ -62,6 +62,16 @@ interface Session {
 }
 
 let limits: ExecutionLimits = DEFAULT_LIMITS;
+/**
+ * Phase 10: an extra check before a program starts (registered by the hardware module).
+ * On the Physical Hardware target it blocks the run unless the device is connected,
+ * validated and armed and the same program was deployed. On the Simulation target it returns nothing.
+ */
+let runGate: ((request: RunRequest) => ProgramIssue[]) | null = null;
+
+export function setRunGate(gate: ((request: RunRequest) => ProgramIssue[]) | null): void {
+  runGate = gate;
+}
 let sandboxFactory: ((lineOffset: number) => SandboxFactory) | null = null;
 let session: Session | null = null;
 let ticker: ReturnType<typeof setInterval> | null = null;
@@ -103,7 +113,7 @@ export function runProgram(request: RunRequest): RunResult {
   if (isActiveState(status().state)) {
     return { ok: false, issues: [{ message: 'A program is already running. Stop it before starting another one.', severity: 'error' }] };
   }
-  const issues = preflight(request).filter((i) => i.severity === 'error');
+  const issues = [...preflight(request), ...(runGate?.(request) ?? [])].filter((i) => i.severity === 'error');
   if (issues.length > 0) {
     for (const issue of issues) log.error('code', issue.line ? `Line ${issue.line}: ${issue.message}` : issue.message);
     setStatus({ ...IDLE_STATUS, state: 'error', programId: request.programId, programName: request.programName, error: { message: issues[0]!.message, line: issues[0]!.line, kind: issues[0]!.message.startsWith('Syntax') ? 'syntax' : 'validation' }, lastOutcome: 'error' });

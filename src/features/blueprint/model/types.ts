@@ -111,7 +111,19 @@ export type HistoryEventType =
   | 'snapshot.created'
   | 'snapshot.restored'
   | 'undo'
-  | 'redo';
+  | 'redo'
+  | 'hardware.connected'
+  | 'hardware.disconnected'
+  | 'hardware.firmware'
+  | 'hardware.profile'
+  | 'hardware.validated'
+  | 'hardware.calibration'
+  | 'hardware.fault'
+  | 'hardware.estop'
+  | 'program.prepared'
+  | 'program.deployed'
+  | 'program.started'
+  | 'program.stopped';
 
 export interface HistoryEvent {
   id: string;
@@ -124,6 +136,58 @@ export interface HistoryEvent {
   note: string;
 }
 
+/** Phase 10: the one supported physical configuration (see docs/hardware/EXPLORER-BOT-REFERENCE-HARDWARE.md). */
+export const REFERENCE_PROFILE_ID = 'explorer-bot-esp32-tb6612-vl53l0x-v1';
+
+/** Measured physical values. Kept apart from the 3D model's geometry, which is never overwritten. */
+export interface HardwareCalibration {
+  invertLeft: boolean;
+  invertRight: boolean;
+  /** Smallest duty (permille) at which the motors start turning; 0 = not measured. */
+  pwmMinPermille: number;
+  wheelDiameterMm: number | null;
+  trackWidthMm: number | null;
+  /** null = the motors have no encoders (the reference motors have none). */
+  encoderTicksPerRev: number | null;
+  /** Added to every physical distance reading (mm). */
+  distanceOffsetMm: number;
+  /** Sensor position on the real robot (mm, x forward, y up, z left), or null when not measured. */
+  sensorPositionMm: [number, number, number] | null;
+  /** Which way the real robot's front faces relative to the 3D model's +X axis. */
+  forward: 'x+' | 'x-';
+  updatedAt: string | null;
+}
+
+/** Phase 10: the project's hardware profile. Values marked user-entered are the user's statement, not verified data. */
+export interface HardwareProfile {
+  referenceId: string;
+  selectedAt: string;
+  /** The real motor power source, entered by the user (not verified by AutoBotAI). */
+  powerSupply: { kind: 'battery' | 'bench' | 'unknown'; voltageV: number | null; maxCurrentA: number | null; source: string };
+  /** The user confirmed a motor-power disconnect switch is wired between the battery and the driver's VM pin. */
+  motorPowerSwitchConfirmed: boolean;
+  limits: { maxSpeedPermille: number; accelPermillePerS: number; maxRunSeconds: number };
+  calibration: HardwareCalibration;
+  /** Compatibility warnings the user reviewed and accepted (check ids). */
+  acknowledgedWarnings: string[];
+}
+
+export function defaultCalibration(): HardwareCalibration {
+  return { invertLeft: false, invertRight: false, pwmMinPermille: 0, wheelDiameterMm: null, trackWidthMm: null, encoderTicksPerRev: null, distanceOffsetMm: 0, sensorPositionMm: null, forward: 'x+', updatedAt: null };
+}
+
+export function defaultHardwareProfile(now: string): HardwareProfile {
+  return {
+    referenceId: REFERENCE_PROFILE_ID,
+    selectedAt: now,
+    powerSupply: { kind: 'unknown', voltageV: null, maxCurrentA: null, source: '' },
+    motorPowerSwitchConfirmed: false,
+    limits: { maxSpeedPermille: 300, accelPermillePerS: 1500, maxRunSeconds: 60 },
+    calibration: defaultCalibration(),
+    acknowledgedWarnings: [],
+  };
+}
+
 /** The part of the blueprint that undo / redo and snapshots work on. */
 export interface BlueprintData {
   mappings: PartMapping[];
@@ -133,6 +197,8 @@ export interface BlueprintData {
   guide: GuideState;
   /** When the user last generated the BOM (null = never). */
   bomGeneratedAt: string | null;
+  /** Phase 10: hardware profile and calibration (null = no physical hardware selected). */
+  hardwareProfile: HardwareProfile | null;
 }
 
 export interface BlueprintSnapshot {
@@ -150,7 +216,7 @@ export interface Blueprint extends BlueprintData {
 }
 
 export function emptyBlueprintData(): BlueprintData {
-  return { mappings: [], hardware: [], bomExtras: [], wiring: [], guide: { generatedAt: null, steps: {} }, bomGeneratedAt: null };
+  return { mappings: [], hardware: [], bomExtras: [], wiring: [], guide: { generatedAt: null, steps: {} }, bomGeneratedAt: null, hardwareProfile: null };
 }
 
 export function emptyBlueprint(now: string): Blueprint {
@@ -167,6 +233,7 @@ export function hasUserContent(b: BlueprintData & { snapshots?: unknown[] }): bo
     Object.keys(b.guide.steps).length > 0 ||
     b.guide.generatedAt !== null ||
     b.bomGeneratedAt !== null ||
+    b.hardwareProfile !== null ||
     (b.snapshots?.length ?? 0) > 0
   );
 }

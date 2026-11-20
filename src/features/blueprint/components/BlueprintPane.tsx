@@ -14,12 +14,14 @@ import { BomTab } from './BomTab';
 import { CompatibilityTab } from './CompatibilityTab';
 import { GuideTab } from './GuideTab';
 import { HistoryTab } from './HistoryTab';
+import { HardwareTab } from '../../hardware/components/HardwareTab';
+import { CONNECTION_LABELS, connectionState, useHardwareStore } from '../../hardware/hardwareStore';
 import { PartsTab } from './PartsTab';
 import { Section, StatusBadge } from './shared';
 import { useBlueprintView, type BlueprintView } from './useBlueprintView';
 import { WiringTab } from './WiringTab';
 
-type TabId = 'overview' | 'robot' | 'parts' | 'compatibility' | 'wiring' | 'bom' | 'guide' | 'history';
+type TabId = 'overview' | 'robot' | 'parts' | 'compatibility' | 'wiring' | 'bom' | 'guide' | 'history' | 'hardware';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -30,6 +32,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'bom', label: 'BOM' },
   { id: 'guide', label: 'Build Guide' },
   { id: 'history', label: 'Build History' },
+  { id: 'hardware', label: 'Hardware' },
 ];
 
 function go(mode: WorkspaceMode, bottom?: BottomPanelTab) {
@@ -54,6 +57,8 @@ function Overview({ view, open }: { view: BlueprintView; open: (t: TabId) => voi
   const counts = summarize(view.checks);
   const mapped = view.vcs.filter((v) => v.mapping).length;
   const progress = guideProgress(view.guide, view.data.guide.steps);
+  const hwState = useHardwareStore((s) => connectionState(s));
+  const hwSimulated = useHardwareStore((s) => s.method === 'simulated' && s.phase !== 'idle');
   const weights = view.data.mappings.filter((m) => !view.orphans.includes(m));
   const knownWeight = weights.reduce((n, m) => n + (m.snapshot.specs.weightG ?? 0) * m.quantity, 0);
   const unknownWeight = weights.filter((m) => m.snapshot.specs.weightG === undefined).length;
@@ -64,6 +69,7 @@ function Overview({ view, open }: { view: BlueprintView; open: (t: TabId) => voi
     { label: 'BOM', value: view.bom.requiredTotal !== null ? `US$${view.bom.requiredTotal.toFixed(2)}` : `${view.bom.lines.length} lines`, detail: view.bom.requiredTotal !== null ? 'required total (list prices)' : `total not shown: ${view.bom.unpricedRequired} line(s) without a verified price`, tab: 'bom', testId: 'ov-bom' },
     { label: 'Build Guide', value: view.data.guide.generatedAt ? `${progress.completed} / ${view.guide.length}` : 'Not generated', detail: view.data.guide.generatedAt ? 'steps completed' : 'generate it in the Build Guide tab', tab: 'guide', testId: 'ov-guide' },
     { label: 'Build History', value: `${view.blueprint.history.length} events`, detail: `${view.blueprint.snapshots.length} saved version(s)`, tab: 'history', testId: 'ov-history' },
+    { label: 'Hardware', value: CONNECTION_LABELS[hwState], detail: view.data.hardwareProfile ? `Explorer Bot reference profile${hwSimulated ? ' · simulated device' : ''}` : 'No hardware profile selected', tab: 'hardware', testId: 'ov-hardware' },
   ];
   return (
     <div className="space-y-3" data-testid="blueprint-overview">
@@ -166,6 +172,7 @@ export default function BlueprintPane() {
         {tab === 'bom' && <BomTab view={view} />}
         {tab === 'guide' && <GuideTab view={view} />}
         {tab === 'history' && <HistoryTab view={view} />}
+        {tab === 'hardware' && <HardwareTab />}
       </div>
     </section>
   );
