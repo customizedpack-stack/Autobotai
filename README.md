@@ -2,7 +2,16 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 8 — Camera Simulation** (on top of Phases 1–7). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, and now give robots **cameras** that see those environments (see `docs/`).
+**Current status: Phase 9 — Real-World Robotics Blueprint** (on top of Phases 1–8). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, give robots **cameras** that see those environments, and now turn the simulated robot into a **real-world build plan** with verified parts (see `docs/`).
+
+## Robot Blueprint (real parts)
+
+1. Click **Blueprint** in the top bar. The blueprint opens beside the live 3D view.
+2. In **Real Parts**, map each 3D component to a real part from the verified parts library (search, category filter, compare, documentation links). Add electronics that the 3D model does not show (motor driver, battery, regulator) as hardware items. Nothing is mapped automatically and the 3D model is never changed.
+3. **Compatibility** checks motors against the driver, the controller against sensors and the driver, the power system and the mechanics. Missing data shows **Unknown**, never Compatible.
+4. **Wiring** (a planning aid, not a verified schematic), **BOM** (CSV export, print to PDF, verified list prices only), **Build Guide** (14 sections, your own step statuses and notes) and **Build History** (events, saved versions, compare, restore).
+
+Everything is saved with the project in this browser when you click Save. Details: `docs/architecture/PHASE-9-ROBOT-BLUEPRINT.md`.
 
 ## Cameras
 
@@ -107,7 +116,7 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix and Phase 8 cameras (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix, Phase 8 cameras and the Phase 9 Robot Blueprint (needs `npm run build` first and Chrome installed) |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology
