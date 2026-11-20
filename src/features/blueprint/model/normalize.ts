@@ -38,7 +38,7 @@ const DIRECTIONS = new Set(['controller-to-component', 'component-to-controller'
 const STATUSES = new Set(['not-started', 'in-progress', 'completed', 'blocked']);
 const EVENT_TYPES = new Set([
   'blueprint.created', 'component.added', 'component.removed', 'part.mapped', 'part.replaced', 'part.unmapped', 'hardware.added', 'hardware.removed',
-  'joint.changed', 'motor.changed', 'sensor.changed', 'wiring.updated', 'program.changed', 'simulation.completed', 'bom.generated', 'bom.updated',
+  'joint.changed', 'motor.changed', 'motor.assigned', 'sensor.changed', 'wiring.updated', 'program.changed', 'simulation.completed', 'bom.generated', 'bom.updated',
   'guide.generated', 'guide.updated', 'step.status', 'snapshot.created', 'snapshot.restored', 'undo', 'redo',
 ]);
 
@@ -100,6 +100,7 @@ function normalizeData(raw: Record<string, unknown>, counter: { dropped: number 
       required: m.required !== false,
       note: str(m.note),
       mappedAt: dateOr(m.mappedAt, new Date(0).toISOString())!,
+      ...(typeof m.driverMappingId === 'string' && m.driverMappingId ? { driverMappingId: str(m.driverMappingId, 80) } : {}),
     });
   }
 

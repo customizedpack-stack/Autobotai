@@ -87,6 +87,8 @@ export function checkCompatibility(model: ModelView, data: BlueprintData, catalo
   }
 
   // ── Motors and driver ──
+  // Each motor is checked against the driver it is assigned to. With two or more drivers an explicit
+  // assignment is required; a missing one is Unknown and is never treated as compatible.
   if (motors.length > 0 && drivers.length === 0) {
     add({ id: 'driver:missing', area: 'motor-driver', status: 'warning', title: 'No motor driver mapped', reason: 'DC motors cannot be powered from controller pins. Add a motor driver (Real Parts → Add hardware item → Motor driver) and map a driver part.', mappingIds: motors.map((x) => x.m.id) });
   }
@@ -101,17 +103,30 @@ export function checkCompatibility(model: ModelView, data: BlueprintData, catalo
         id: 'driver:channels',
         area: 'motor-driver',
         status: motorUnits > channels ? 'incompatible' : 'compatible',
-        title: `${motorUnits} motor(s) on ${channels} driver channel(s)`,
-        reason: motorUnits > channels ? 'There are more motors than driver channels. Add another driver or use a driver with more channels.' : 'Each motor has its own driver channel.',
+        title: `${motorUnits} motor(s) on ${channels} driver channel(s) in total`,
+        reason: motorUnits > channels ? 'There are more motors than driver channels. Add another driver or use a driver with more channels.' : 'In total there are enough driver channels for every motor. Each driver is also checked on its own below.',
         mappingIds: [...motors, ...drivers].map((x) => x.m.id),
       });
     }
-    const driver = drivers[0]!;
-    const d = driver.p.specs;
+    const assignment = motorDriverAssignments(data);
+    const assigned = new Map<string, Mapped[]>();
     for (const motor of motors) {
+      const a = assignment.get(motor.m.id)!;
+      const driver = a.driverMappingId ? drivers.find((x) => x.m.id === a.driverMappingId) : undefined;
+      if (!driver) {
+        const reason =
+          a.kind === 'missing-driver'
+            ? 'The driver this motor was assigned to is no longer mapped. Choose its driver again in Real Parts.'
+            : `There are ${drivers.length} motor drivers and this motor is not assigned to one, so its voltage and current cannot be checked. Choose its driver in Real Parts (the "Driver" selector on the motor).`;
+        add({ id: `assign:${motor.m.id}`, area: 'motor-driver', status: 'unknown', title: `${motor.name}: driver not assigned`, reason, mappingIds: [motor.m.id] });
+        continue;
+      }
+      assigned.set(driver.m.id, [...(assigned.get(driver.m.id) ?? []), motor]);
+      const how = a.kind === 'only-driver' ? ` (the only mapped driver, ${driver.name})` : ` (assigned: ${driver.name})`;
+      const d = driver.p.specs;
       const s = motor.p.specs;
       const ids = [motor.m.id, driver.m.id];
-      const vTitle = `${motor.name} voltage vs ${driver.p.name}`;
+      const vTitle = `${motor.name} voltage vs ${driver.p.name}${how}`;
       if (s.ratedVoltageV === undefined || d.motorVoltageMinV === undefined || d.motorVoltageMaxV === undefined) {
         add({ id: `mv:${motor.m.id}`, area: 'motor-driver', status: 'unknown', title: vTitle, reason: 'The motor rated voltage or the driver motor-voltage range is not stated.', mappingIds: ids });
       } else if (s.ratedVoltageV > d.motorVoltageMaxV) {
@@ -121,7 +136,7 @@ export function checkCompatibility(model: ModelView, data: BlueprintData, catalo
       } else {
         add({ id: `mv:${motor.m.id}`, area: 'motor-driver', status: 'compatible', title: vTitle, reason: `Rated ${fmt(s.ratedVoltageV, 'V')} is inside the driver range ${fmt(d.motorVoltageMinV, 'V')} – ${fmt(d.motorVoltageMaxV, 'V')}.`, mappingIds: ids });
       }
-      const cTitle = `${motor.name} current vs ${driver.p.name}`;
+      const cTitle = `${motor.name} current vs ${driver.p.name}${how}`;
       if (s.stallCurrentA === undefined || d.continuousCurrentPerChannelA === undefined || d.peakCurrentPerChannelA === undefined) {
         add({ id: `mc:${motor.m.id}`, area: 'motor-driver', status: 'unknown', title: cTitle, reason: 'The motor stall current or the driver continuous / peak current per channel is not stated.', mappingIds: ids });
       } else if (s.stallCurrentA > d.peakCurrentPerChannelA) {
@@ -130,6 +145,22 @@ export function checkCompatibility(model: ModelView, data: BlueprintData, catalo
         add({ id: `mc:${motor.m.id}`, area: 'motor-driver', status: 'warning', title: cTitle, reason: `Stall current ${fmt(s.stallCurrentA, 'A')} is above the driver continuous rating of ${fmt(d.continuousCurrentPerChannelA, 'A')} (peak ${fmt(d.peakCurrentPerChannelA, 'A')}). Avoid long stalls; the driver can overheat.`, mappingIds: ids });
       } else {
         add({ id: `mc:${motor.m.id}`, area: 'motor-driver', status: 'compatible', title: cTitle, reason: `Stall current ${fmt(s.stallCurrentA, 'A')} is within the driver continuous rating of ${fmt(d.continuousCurrentPerChannelA, 'A')}.`, mappingIds: ids });
+      }
+    }
+    // Channel capacity of each driver for the motors assigned to it.
+    if (drivers.length > 1 || assigned.size > 0) {
+      for (const driver of drivers) {
+        const list = assigned.get(driver.m.id) ?? [];
+        if (list.length === 0) continue;
+        const units = list.reduce((n, x) => n + x.m.quantity, 0);
+        const ch = driver.p.specs.channels;
+        const ids = [driver.m.id, ...list.map((x) => x.m.id)];
+        const title = `${driver.name} (${driver.p.name}): ${units} motor(s) assigned`;
+        if (ch === undefined) add({ id: `driverload:${driver.m.id}`, area: 'motor-driver', status: 'unknown', title, reason: 'This driver does not state its channel count.', mappingIds: ids });
+        else {
+          const capacity = ch * driver.m.quantity;
+          add({ id: `driverload:${driver.m.id}`, area: 'motor-driver', status: units > capacity ? 'incompatible' : 'compatible', title, reason: units > capacity ? `${units} motors are assigned but this driver has only ${capacity} channel(s). Assign some motors to another driver.` : `${units} of ${capacity} channel(s) used: ${list.map((x) => x.name).join(', ')}.`, mappingIds: ids });
+        }
       }
     }
   }
@@ -214,18 +245,18 @@ export function checkCompatibility(model: ModelView, data: BlueprintData, catalo
     }
   }
   if (packV !== undefined) {
-    for (const motor of motors.slice(0, 1)) {
+    for (const motor of motors) {
       const r = motor.p.specs.ratedVoltageV;
-      if (r === undefined) add({ id: 'power:motor', area: 'power', status: 'unknown', title: 'Battery vs motor voltage', reason: 'The motor rated voltage is not stated.', mappingIds: [motor.m.id, ...powerIds] });
-      else if (packV < r * 0.9) add({ id: 'power:motor', area: 'power', status: 'warning', title: 'Battery vs motor voltage', reason: `The pack gives ${fmt(packV, 'V')} nominal; the motors are rated ${fmt(r, 'V')}. They will run slower and weaker than their rated speed and torque.`, mappingIds: [motor.m.id, ...powerIds] });
-      else if (packV > r * 1.5) add({ id: 'power:motor', area: 'power', status: 'warning', title: 'Battery vs motor voltage', reason: `The pack gives ${fmt(packV, 'V')} nominal; the motors are rated ${fmt(r, 'V')}. Limit the PWM duty cycle or the motors can overheat.`, mappingIds: [motor.m.id, ...powerIds] });
-      else add({ id: 'power:motor', area: 'power', status: 'compatible', title: 'Battery vs motor voltage', reason: `The pack gives ${fmt(packV, 'V')} nominal for motors rated ${fmt(r, 'V')}.`, mappingIds: [motor.m.id, ...powerIds] });
+      if (r === undefined) add({ id: `power:motor:${motor.m.id}`, area: 'power', status: 'unknown', title: `Battery vs ${motor.name} voltage`, reason: 'The motor rated voltage is not stated.', mappingIds: [motor.m.id, ...powerIds] });
+      else if (packV < r * 0.9) add({ id: `power:motor:${motor.m.id}`, area: 'power', status: 'warning', title: `Battery vs ${motor.name} voltage`, reason: `The pack gives ${fmt(packV, 'V')} nominal; the motors are rated ${fmt(r, 'V')}. They will run slower and weaker than their rated speed and torque.`, mappingIds: [motor.m.id, ...powerIds] });
+      else if (packV > r * 1.5) add({ id: `power:motor:${motor.m.id}`, area: 'power', status: 'warning', title: `Battery vs ${motor.name} voltage`, reason: `The pack gives ${fmt(packV, 'V')} nominal; the motors are rated ${fmt(r, 'V')}. Limit the PWM duty cycle or the motors can overheat.`, mappingIds: [motor.m.id, ...powerIds] });
+      else add({ id: `power:motor:${motor.m.id}`, area: 'power', status: 'compatible', title: `Battery vs ${motor.name} voltage`, reason: `The pack gives ${fmt(packV, 'V')} nominal for motors rated ${fmt(r, 'V')}.`, mappingIds: [motor.m.id, ...powerIds] });
     }
-    for (const driver of drivers.slice(0, 1)) {
+    for (const driver of drivers) {
       const d = driver.p.specs;
-      if (d.motorVoltageMinV === undefined || d.motorVoltageMaxV === undefined) add({ id: 'power:driver', area: 'power', status: 'unknown', title: 'Battery vs driver motor supply', reason: 'The driver motor-voltage range is not stated.', mappingIds: [driver.m.id, ...powerIds] });
-      else if (packV < d.motorVoltageMinV || packV > d.motorVoltageMaxV) add({ id: 'power:driver', area: 'power', status: 'incompatible', title: 'Battery vs driver motor supply', reason: `The pack gives ${fmt(packV, 'V')}; the driver motor supply must be ${fmt(d.motorVoltageMinV, 'V')} – ${fmt(d.motorVoltageMaxV, 'V')}.`, mappingIds: [driver.m.id, ...powerIds] });
-      else add({ id: 'power:driver', area: 'power', status: 'compatible', title: 'Battery vs driver motor supply', reason: `${fmt(packV, 'V')} is inside the driver motor supply range ${fmt(d.motorVoltageMinV, 'V')} – ${fmt(d.motorVoltageMaxV, 'V')}.`, mappingIds: [driver.m.id, ...powerIds] });
+      if (d.motorVoltageMinV === undefined || d.motorVoltageMaxV === undefined) add({ id: `power:driver:${driver.m.id}`, area: 'power', status: 'unknown', title: `Battery vs ${driver.name} motor supply`, reason: 'The driver motor-voltage range is not stated.', mappingIds: [driver.m.id, ...powerIds] });
+      else if (packV < d.motorVoltageMinV || packV > d.motorVoltageMaxV) add({ id: `power:driver:${driver.m.id}`, area: 'power', status: 'incompatible', title: `Battery vs ${driver.name} motor supply`, reason: `The pack gives ${fmt(packV, 'V')}; the driver motor supply must be ${fmt(d.motorVoltageMinV, 'V')} – ${fmt(d.motorVoltageMaxV, 'V')}.`, mappingIds: [driver.m.id, ...powerIds] });
+      else add({ id: `power:driver:${driver.m.id}`, area: 'power', status: 'compatible', title: `Battery vs ${driver.name} motor supply`, reason: `${fmt(packV, 'V')} is inside the driver motor supply range ${fmt(d.motorVoltageMinV, 'V')} – ${fmt(d.motorVoltageMaxV, 'V')}.`, mappingIds: [driver.m.id, ...powerIds] });
     }
     for (const reg of regulators) {
       const r = reg.p.specs;
@@ -306,6 +337,26 @@ export function checkCompatibility(model: ModelView, data: BlueprintData, catalo
     add({ id: 'clearance', area: 'mechanical', status: 'unknown', title: 'Ground clearance and level stance', reason: 'Mounting heights of the wheels, motors and caster on the real chassis are not modeled, so the stance and clearance were not checked. Measure them before final assembly.', mappingIds: [...casters, ...wheels].map((x) => x.m.id) });
   }
   return checks;
+}
+
+export type AssignmentKind = 'explicit' | 'only-driver' | 'unassigned' | 'missing-driver';
+
+/**
+ * Motor → driver assignment for every motor mapping.
+ * - explicit: the user chose the driver (stored on the motor mapping as `driverMappingId`).
+ * - only-driver: no choice stored and exactly one driver is mapped, so it is the only possible driver.
+ * - unassigned: no choice stored and two or more drivers are mapped (never guessed).
+ * - missing-driver: the stored driver is no longer mapped.
+ */
+export function motorDriverAssignments(data: BlueprintData): Map<string, { kind: AssignmentKind; driverMappingId: string | null }> {
+  const drivers = data.mappings.filter((m) => m.snapshot.role === 'dual-motor-driver');
+  const out = new Map<string, { kind: AssignmentKind; driverMappingId: string | null }>();
+  for (const m of data.mappings.filter((x) => x.snapshot.role === 'dc-gearmotor')) {
+    if (m.driverMappingId) out.set(m.id, drivers.some((d) => d.id === m.driverMappingId) ? { kind: 'explicit', driverMappingId: m.driverMappingId } : { kind: 'missing-driver', driverMappingId: null });
+    else if (drivers.length === 1) out.set(m.id, { kind: 'only-driver', driverMappingId: drivers[0]!.id });
+    else out.set(m.id, { kind: 'unassigned', driverMappingId: null });
+  }
+  return out;
 }
 
 /** Worst status per mapping id. Mappings without any check are unknown. */

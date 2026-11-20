@@ -10,12 +10,14 @@ import {
   removeHardware,
   setMappingQuantity,
   setMappingRequired,
+  setMotorDriver,
   unmapPart,
   updateSnapshotFromCatalog,
 } from '../blueprintActions';
 import { missingSpecs, searchParts } from '../catalog/catalog';
 import { PART_CATEGORIES, SPEC_LABELS, type CatalogPart, type PartCategory, type PartSpecs } from '../catalog/types';
-import { differences, type VirtualComponent } from '../engine/virtualComponents';
+import { motorDriverAssignments } from '../engine/compatibility';
+import { differences, refOf, type VirtualComponent } from '../engine/virtualComponents';
 import type { HardwareRole } from '../model/types';
 import { DocLink, Section, SpecTable, StatusBadge, VerificationBadge } from './shared';
 import { formatSpec, inputClass } from './format';
@@ -136,6 +138,33 @@ function CompareTable({ parts }: { parts: CatalogPart[] }) {
   );
 }
 
+/** Which motor driver this motor is wired to. Required when two or more drivers are mapped. */
+function DriverSelect({ view, motorMappingId, vcId }: { view: BlueprintView; motorMappingId: string; vcId: string }) {
+  const drivers = view.data.mappings.filter((x) => x.snapshot.role === 'dual-motor-driver');
+  const a = motorDriverAssignments(view.data).get(motorMappingId);
+  const current = view.data.mappings.find((x) => x.id === motorMappingId)?.driverMappingId ?? '';
+  const nameOf = (id: string) => {
+    const d = drivers.find((x) => x.id === id);
+    return d ? `${view.vcs.find((v) => v.ref === refOf(d.targetKind, d.targetId))?.name ?? d.targetId} (${d.snapshot.name})` : '';
+  };
+  if (drivers.length === 0) return <span className="text-faint">Driver: none mapped</span>;
+  return (
+    <label className="flex items-center gap-1 text-muted">
+      Driver
+      <select className={inputClass} value={current} onChange={(e) => setMotorDriver(motorMappingId, e.target.value || null)} data-testid={`driver-of-${vcId}`} aria-label="Motor driver for this motor">
+        <option value="">{drivers.length === 1 ? `Only driver: ${nameOf(drivers[0]!.id)}` : 'Not assigned'}</option>
+        {drivers.map((d) => (
+          <option key={d.id} value={d.id}>
+            {nameOf(d.id)}
+          </option>
+        ))}
+        {a?.kind === 'missing-driver' && current && <option value={current}>⚠ removed driver</option>}
+      </select>
+      {(a?.kind === 'unassigned' || a?.kind === 'missing-driver') && <span className="text-warn" data-testid={`driver-unassigned-${vcId}`}>needs a driver</span>}
+    </label>
+  );
+}
+
 function ComponentRow({ view, vc, picking, onPick }: { view: BlueprintView; vc: VirtualComponent; picking: boolean; onPick: (open: boolean) => void }) {
   const m = vc.mapping;
   const part = m?.snapshot;
@@ -194,6 +223,7 @@ function ComponentRow({ view, vc, picking, onPick }: { view: BlueprintView; vc: 
                 <input type="checkbox" checked={m.required} onChange={(e) => setMappingRequired(m.id, e.target.checked)} />
                 Required
               </label>
+              {part.role === 'dc-gearmotor' && <DriverSelect view={view} motorMappingId={m.id} vcId={vc.id} />}
             </div>
             {stale && (
               <p className="mt-1 text-[11px] text-warn">
