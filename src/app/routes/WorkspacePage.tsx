@@ -15,6 +15,7 @@ import { WorkspaceTopBar } from '../../components/workspace/WorkspaceTopBar';
 import { endControlSession } from '../../features/controls/controlSession';
 import { closeCodeStudioSession, hasUnsavedPrograms, saveAllPrograms, unsavedPrograms } from '../../features/code-studio/programActions';
 import { useCodeStudioStore } from '../../features/code-studio/codeStudioStore';
+import { useBlueprintStore } from '../../features/blueprint/blueprintStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { saveCurrentProject } from '../../features/projects/workspaceActions';
 import { Viewport } from '../../features/viewport/Viewport';
@@ -47,11 +48,21 @@ function SmallScreenBanner() {
 
 // Code Studio's editors (Blockly, CodeMirror) load only when Code Studio is opened.
 const CodeStudioPane = lazy(() => import('../../features/code-studio/components/CodeStudioPane'));
+// The Robot Blueprint (Phase 9) and its parts catalog load only when the Blueprint is opened.
+const BlueprintPane = lazy(() => import('../../features/blueprint/components/BlueprintPane'));
 
 function CodeStudioLoading() {
   return (
     <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-panel text-xs text-muted" data-testid="code-studio-loading">
       Loading Code Studio…
+    </section>
+  );
+}
+
+function BlueprintLoading() {
+  return (
+    <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-panel text-xs text-muted" data-testid="blueprint-loading">
+      Loading Robot Blueprint…
     </section>
   );
 }
@@ -64,8 +75,11 @@ export default function WorkspacePage() {
   const sceneDirty = useSceneStore((s) => s.dirty);
   // Unsaved program edits count as unsaved changes too.
   const programsDirty = useCodeStudioStore((s) => Object.keys(s.drafts).length > 0 && hasUnsavedPrograms());
-  const dirty = sceneDirty || programsDirty;
+  const blueprintDirty = useBlueprintStore((s) => s.dirty);
+  const dirty = sceneDirty || programsDirty || blueprintDirty;
   const code = useRobotStateStore((s) => s.mode === 'code');
+  const blueprint = useRobotStateStore((s) => s.mode === 'blueprint');
+  const beside = code || blueprint;
   const environment = useRobotStateStore((s) => s.mode === 'environment');
   const confirmOnLeave = useSettingsStore((s) => s.confirmUnsavedOnLeave);
   const compact = useMediaQuery(COMPACT_WORKSPACE_QUERY);
@@ -76,7 +90,7 @@ export default function WorkspacePage() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       currentLocation.pathname !== nextLocation.pathname &&
-      (useSceneStore.getState().dirty || hasUnsavedPrograms()) &&
+      (useSceneStore.getState().dirty || useBlueprintStore.getState().dirty || hasUnsavedPrograms()) &&
       useSettingsStore.getState().confirmUnsavedOnLeave,
   );
 
@@ -86,6 +100,7 @@ export default function WorkspacePage() {
     endControlSession();
     closeCodeStudioSession();
     useSceneStore.getState().loadProject(project);
+    useBlueprintStore.getState().load(project.id, project.blueprint);
     useSelectionStore.getState().clear();
     useViewportStore.getState().requestView('perspective');
     log.info(
@@ -100,6 +115,7 @@ export default function WorkspacePage() {
       endControlSession();
       closeCodeStudioSession();
       useSceneStore.getState().closeProject();
+      useBlueprintStore.getState().close();
       useSelectionStore.getState().clear();
       document.body.style.cursor = '';
     },
@@ -143,15 +159,20 @@ export default function WorkspacePage() {
         <div className="flex min-w-0 flex-1 flex-col">
           {environment && <EnvironmentToolbar />}
           {/* Code Studio: editor beside the SAME viewport element (it is never remounted when the mode changes). */}
-          <div className={code ? 'flex min-h-0 flex-1 flex-col lg:flex-row' : 'flex min-h-0 flex-1'} data-testid="workspace-center">
+          <div className={beside ? 'flex min-h-0 flex-1 flex-col lg:flex-row' : 'flex min-h-0 flex-1'} data-testid="workspace-center">
             {code && ready && (
               <Suspense fallback={<CodeStudioLoading />}>
                 <CodeStudioPane />
               </Suspense>
             )}
+            {blueprint && ready && (
+              <Suspense fallback={<BlueprintLoading />}>
+                <BlueprintPane />
+              </Suspense>
+            )}
             <div
               className={
-                code
+                beside
                   ? 'relative h-[38%] min-h-[180px] shrink-0 border-t border-line bg-viewport lg:h-auto lg:w-[40%] lg:border-t-0 lg:border-l'
                   : 'relative min-h-0 flex-1 bg-viewport'
               }
@@ -181,7 +202,7 @@ export default function WorkspacePage() {
             <Button
               variant="primary"
               onClick={() => {
-                const sceneSaved = !useSceneStore.getState().dirty || saveCurrentProject();
+                const sceneSaved = !(useSceneStore.getState().dirty || useBlueprintStore.getState().dirty) || saveCurrentProject();
                 if (sceneSaved && saveAllPrograms()) blocker.proceed?.();
               }}
             >

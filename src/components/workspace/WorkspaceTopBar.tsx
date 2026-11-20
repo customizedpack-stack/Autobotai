@@ -14,7 +14,9 @@ import {
   Shapes,
   Undo2,
   Trees,
+  ClipboardList,
 } from 'lucide-react';
+import { useBlueprintStore } from '../../features/blueprint/blueprintStore';
 import { setWorkspaceMode } from '../../features/controls/controlSession';
 import { useEnvironmentStore } from '../../features/environment/store/environmentStore';
 import { selectEngine } from '../../features/physics/simulation/simulationManager';
@@ -53,7 +55,9 @@ function ProjectNameField({ name }: { name: string }) {
 }
 
 function SaveState() {
-  const dirty = useSceneStore((s) => s.dirty);
+  const sceneDirty = useSceneStore((s) => s.dirty);
+  const blueprintDirty = useBlueprintStore((s) => s.dirty);
+  const dirty = sceneDirty || blueprintDirty;
   const projectId = useSceneStore((s) => s.projectId);
   const savedAt = useProjectStore((s) => (projectId ? s.projects[projectId]?.savedAt ?? null : null));
   const [, tick] = useState(0);
@@ -74,6 +78,7 @@ const MODES = [
   { id: 'control', label: 'Control', icon: <Gamepad2 size={13} />, phase: null, hint: 'Drive the robot with keys and buttons (M)' },
   { id: 'code', label: 'Code', icon: <Code2 size={13} />, phase: null, hint: 'Code Studio: program the robot with blocks or JavaScript' },
   { id: 'environment', label: 'Environment', icon: <Trees size={13} />, phase: null, hint: 'Environment Editor: build the world the robot is tested in' },
+  { id: 'blueprint', label: 'Blueprint', icon: <ClipboardList size={13} />, phase: null, hint: 'Robot Blueprint: real parts, compatibility, wiring, BOM and build guide' },
   { id: 'simulate', label: 'Simulate', icon: <Play size={13} />, phase: null, hint: 'Physics simulation: opens Control Mode with the Physics engine' },
 ] as const;
 
@@ -89,10 +94,14 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
   const envFuture = useEnvironmentStore((s) => s.future.length);
   const robotPast = useSceneStore((s) => s.past.length);
   const robotFuture = useSceneStore((s) => s.future.length);
-  // In the Environment Editor, Undo / Redo work on the environment's own history.
-  const canUndo = mode === 'environment' ? envPast > 0 : robotPast > 0 && !control;
-  const canRedo = mode === 'environment' ? envFuture > 0 : robotFuture > 0 && !control;
-  const dirty = useSceneStore((s) => s.dirty);
+  const bpPast = useBlueprintStore((s) => s.past.length);
+  const bpFuture = useBlueprintStore((s) => s.future.length);
+  // In the Environment Editor and the Robot Blueprint, Undo / Redo work on their own histories.
+  const canUndo = mode === 'environment' ? envPast > 0 : mode === 'blueprint' ? bpPast > 0 : robotPast > 0 && !control;
+  const canRedo = mode === 'environment' ? envFuture > 0 : mode === 'blueprint' ? bpFuture > 0 : robotFuture > 0 && !control;
+  const sceneDirty = useSceneStore((s) => s.dirty);
+  const blueprintDirty = useBlueprintStore((s) => s.dirty);
+  const dirty = sceneDirty || blueprintDirty;
   const projectName = useSceneStore((s) => s.projectName);
   const collapsed = useWorkspaceStore((s) => s.collapsed);
   const togglePanel = useWorkspaceStore((s) => s.togglePanel);

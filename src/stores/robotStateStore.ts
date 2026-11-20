@@ -16,10 +16,12 @@ import type { Transform } from '../types/scene';
  * control: drive with keys and buttons (Phase 3).
  * code:    Code Studio programs drive the robot (Phase 4). Like Control Mode,
  *          design editing is locked; unlike it, the keyboard does not drive.
+ * blueprint: the Robot Blueprint (Phase 9): real parts, wiring, BOM and build guide.
+ *          The robot design is locked and the robot does not move.
  * environment: the Environment Editor (Phase 7). The robot design is locked and the
  *          robot does not move; environment objects are edited.
  */
-export type WorkspaceMode = 'build' | 'control' | 'code' | 'environment';
+export type WorkspaceMode = 'build' | 'control' | 'code' | 'environment' | 'blueprint';
 
 /** Modes in which C2 accepts movement commands. */
 export function canDrive(mode: WorkspaceMode): boolean {

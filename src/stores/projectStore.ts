@@ -9,6 +9,7 @@ import type { RobotActuator, RobotController } from '../types/actuator';
 import type { RobotJoint } from '../types/joint';
 import type { SceneObject } from '../types/scene';
 import type { RobotSensor } from '../types/sensor';
+import type { Blueprint } from '../features/blueprint/model/types';
 import { defaultSensorsFor } from '../features/sensors/config/sensorConfig';
 import { createId } from '../utils/id';
 import { log } from '../utils/logger';
@@ -23,7 +24,7 @@ interface ProjectState {
   createProject: (input: NewProjectInput) => RobotProject;
   saveProject: (
     id: string,
-    data: { name: string; objects: SceneObject[]; joints: RobotJoint[]; actuators: RobotActuator[]; controllers: RobotController[]; sensors?: RobotSensor[] },
+    data: { name: string; objects: SceneObject[]; joints: RobotJoint[]; actuators: RobotActuator[]; controllers: RobotController[]; sensors?: RobotSensor[]; blueprint?: Blueprint },
   ) => RobotProject | null;
   renameProject: (id: string, name: string) => void;
   /** Phase 7: remember the environment this project simulates in (not part of the robot undo history). */
@@ -80,6 +81,8 @@ export const useProjectStore = create<ProjectState>()(
           controllers: structuredClone(data.controllers),
           // Projects that never had sensors keep having no sensor field.
           ...(data.sensors && (data.sensors.length > 0 || existing.sensors) ? { sensors: structuredClone(data.sensors) } : {}),
+          // Phase 9: projects without blueprint content keep having no blueprint field.
+          ...(data.blueprint ? { blueprint: structuredClone(data.blueprint) } : {}),
           schemaVersion: PROJECT_SCHEMA_VERSION,
           updatedAt: now,
           savedAt: now,

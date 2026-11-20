@@ -1,4 +1,5 @@
 import { redoEnvironment, undoEnvironment } from '../environment/store/environmentStore';
+import { blueprintForSave, useBlueprintStore } from '../blueprint/blueprintStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useRobotStateStore } from '../../stores/robotStateStore';
 import { useSceneStore } from '../../stores/sceneStore';
@@ -29,12 +30,14 @@ export function saveCurrentProject(): boolean {
       actuators: scene.actuators,
       controllers: scene.controllers,
       sensors: scene.sensors,
+      blueprint: blueprintForSave(),
     });
   if (!saved) {
     log.error('storage', 'Save failed: project not found in local drafts.');
     return false;
   }
   scene.markSaved();
+  useBlueprintStore.getState().markSaved();
   log.success(
     'storage',
     `Saved "${saved.name}" as a local draft in this browser (${saved.objects.length} components, ${saved.joints.length} joints, ${saved.actuators.length} actuators).`,
@@ -43,6 +46,11 @@ export function saveCurrentProject(): boolean {
 }
 
 export function undo(): void {
+  if (useRobotStateStore.getState().mode === 'blueprint') {
+    const label = useBlueprintStore.getState().undo();
+    if (label) log.info('blueprint', `Undo: ${label}.`);
+    return;
+  }
   if (useRobotStateStore.getState().mode === 'environment') {
     const envLabel = undoEnvironment();
     if (envLabel) log.info('environment', `Undo: ${envLabel}.`);
@@ -54,6 +62,11 @@ export function undo(): void {
 }
 
 export function redo(): void {
+  if (useRobotStateStore.getState().mode === 'blueprint') {
+    const label = useBlueprintStore.getState().redo();
+    if (label) log.info('blueprint', `Redo: ${label}.`);
+    return;
+  }
   if (useRobotStateStore.getState().mode === 'environment') {
     if (redoEnvironment()) log.info('environment', 'Redo.');
     return;
@@ -74,7 +87,7 @@ function pruneSelection(): void {
 function editingLocked(): boolean {
   const { mode } = useRobotStateStore.getState();
   if (mode === 'build') return false;
-  log.warning('scene', `Editing is locked in ${mode === 'code' ? 'Code Studio' : 'Control Mode'}. Switch to Build Mode to change the robot.`);
+  log.warning('scene', `Editing is locked in ${mode === 'code' ? 'Code Studio' : mode === 'blueprint' ? 'the Robot Blueprint' : mode === 'environment' ? 'the Environment Editor' : 'Control Mode'}. Switch to Build Mode to change the robot.`);
   return true;
 }
 

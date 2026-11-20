@@ -37,6 +37,8 @@ export function LeftPanel({ overlay = false }: { overlay?: boolean }) {
       <span className="mt-3 text-[10px] tracking-widest text-faint uppercase [writing-mode:vertical-rl]">{code ? 'Programs' : 'Library'}</span>
     </div>
   );
+  // The Robot Blueprint uses the full width beside the viewport.
+  if (mode === 'blueprint') return null;
   if (collapsed) return rail;
 
   const tabs: { id: LeftPanelTab; label: string }[] = [
