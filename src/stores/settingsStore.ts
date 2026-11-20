@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { safeStorage } from '../utils/storage';
 
 export type RotationUnit = 'deg' | 'rad';
+/** Phase 11: how the app presents itself. Never changes project data. */
+export type ExperienceMode = 'beginner' | 'professional' | 'reverse';
 
 interface SettingsState {
   rotationUnit: RotationUnit;
@@ -10,6 +12,11 @@ interface SettingsState {
   positionStep: number;
   confirmUnsavedOnLeave: boolean;
   showShortcutHints: boolean;
+  /** Phase 11. Professional keeps the full Phase 10 workspace and is the default. */
+  experienceMode: ExperienceMode;
+  /** The user picked a mode at least once (the dashboard stops asking). */
+  experienceChosen: boolean;
+  setExperienceMode: (mode: ExperienceMode) => void;
   setRotationUnit: (unit: RotationUnit) => void;
   setPositionStep: (step: number) => void;
   setConfirmUnsavedOnLeave: (value: boolean) => void;
@@ -32,6 +39,10 @@ export const useSettingsStore = create<SettingsState>()(
       setPositionStep: (positionStep) => set({ positionStep }),
       setConfirmUnsavedOnLeave: (confirmUnsavedOnLeave) => set({ confirmUnsavedOnLeave }),
       setShowShortcutHints: (showShortcutHints) => set({ showShortcutHints }),
+      experienceMode: 'professional',
+      experienceChosen: false,
+      setExperienceMode: (experienceMode) => set({ experienceMode, experienceChosen: true }),
+      // Workspace settings only: the experience mode is kept.
       reset: () => set(DEFAULTS),
     }),
     { name: 'arai.settings.v1', storage: safeStorage },

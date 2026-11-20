@@ -8,6 +8,7 @@ import { connectHardwareRuntime } from '../features/hardware/connectionManager';
 import { connectCommandBus } from '../features/controls/commandBus';
 import { connectRobotModelConnector } from '../features/robot-model/robotModelConnector';
 import { connectConsoleToBus } from '../stores/consoleStore';
+import { connectLearningEvidence } from '../features/learning/engine/evidence';
 
 connectConsoleToBus();
 connectRobotModelConnector();
@@ -15,3 +16,4 @@ connectCommandBus();
 connectProgramStore();
 connectBlueprintHistory();
 connectHardwareRuntime();
+connectLearningEvidence();

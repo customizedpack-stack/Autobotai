@@ -2,7 +2,17 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 10 — Real Hardware Integration** (on top of Phases 1–9). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, give robots **cameras** that see those environments, turn the simulated robot into a **real-world build plan** with verified parts, and now **connect a real ESP32 Explorer Bot over USB** with safety interlocks and an emergency stop (see `docs/`).
+**Current status: Phase 11 — Guided Robotics Learning** (on top of Phases 1–10). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, give robots **cameras** that see those environments, turn the simulated robot into a **real-world build plan** with verified parts, and now **connect a real ESP32 Explorer Bot over USB** with safety interlocks and an emergency stop (see `docs/`).
+
+## Learn robotics (Phase 11)
+
+1. On the dashboard, choose how you want to work: **Beginner** (guided, fewer controls), **Professional** (the full workspace) or **Reverse Engineering** (inspect finished robots read-only). Change it any time in the sidebar; your projects are never changed by it.
+2. **Project Library** has six projects (Obstacle Avoidance, Line Following, Pick & Place Arm, Delivery, Agriculture Monitoring, Security Patrol). Each one shows exactly what works in simulation and what exists for a physical build.
+3. **Start Guided Tutorial** creates a new project and opens a nine-step tutorial beside the 3D view. Every step has Learn, Do (buttons that open the real controls) and Verify ("Check my robot" checks your actual robot; manual checks are labeled). Progress is saved and resumes from the dashboard.
+4. **Explore Project** opens a finished example read-only: click parts to see what they do and how they connect, read the program line by line, and see the build order.
+5. **Robot Builder** asks what you want your robot to do and recommends the closest project, saying clearly what AutoBotAI cannot do yet.
+
+Details: `docs/phase-11/`.
 
 ## Real hardware (Phase 10)
 
@@ -128,7 +138,7 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix, Phase 8 cameras, the Phase 9 Robot Blueprint and Phase 10 hardware integration with the simulated device (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix, Phase 8 cameras, the Phase 9 Robot Blueprint, Phase 10 hardware integration with the simulated device and the Phase 11 learning journeys (needs `npm run build` first and Chrome installed) |
 | `npm run test:firmware` | Firmware core tests on this computer (g++): the shared protocol vectors and safety checks. This does not compile for the ESP32 |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 

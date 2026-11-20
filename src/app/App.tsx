@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type JSX } from 'react';
 import { createBrowserRouter, createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { AppProviders } from './providers/AppProviders';
@@ -10,6 +10,16 @@ import { RouteError } from './routes/RouteError';
 
 // The workspace pulls in Three.js; load it only when it is opened.
 const WorkspacePage = lazy(() => import('./routes/WorkspacePage'));
+// Phase 11 learning pages load on demand.
+const LearnPage = lazy(() => import('../features/learning/pages/LearnPage'));
+const LibraryPage = lazy(() => import('../features/learning/pages/LibraryPage'));
+const ProjectDetailPage = lazy(() => import('../features/learning/pages/ProjectDetailPage'));
+const PurposeBuilderPage = lazy(() => import('../features/learning/pages/PurposeBuilderPage'));
+
+function PageLoading() {
+  return <div className="p-8 text-xs text-muted">Loading…</div>;
+}
+const page = (element: JSX.Element) => <Suspense fallback={<PageLoading />}>{element}</Suspense>;
 
 function WorkspaceLoading() {
   return <div className="flex h-full items-center justify-center bg-app text-xs text-muted">Loading workspace…</div>;
@@ -23,6 +33,10 @@ const routes: RouteObject[] = [
       { index: true, element: <DashboardPage /> },
       { path: 'projects', element: <ProjectsPage /> },
       { path: 'new', element: <NewRobotPage /> },
+      { path: 'learn', element: page(<LearnPage />) },
+      { path: 'library', element: page(<LibraryPage />) },
+      { path: 'library/:slug', element: page(<ProjectDetailPage />) },
+      { path: 'builder', element: page(<PurposeBuilderPage />) },
     ],
   },
   {

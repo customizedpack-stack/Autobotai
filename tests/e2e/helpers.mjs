@@ -65,7 +65,7 @@ export function createSuite(title) {
         console.log(`  PASS  ${name}`);
       } catch (error) {
         results.push({ name, ok: false, error: String(error?.message ?? error) });
-        console.log(`  FAIL  ${name}\n        ${String(error?.message ?? error).split('\n')[0]}`);
+        console.log(`  FAIL  ${name}\n        ${process.env.E2E_VERBOSE ? String(error?.message ?? error) : String(error?.message ?? error).split('\n')[0]}`);
         if (currentPage) await currentPage.screenshot({ path: `${SHOTS}/fail-${title}-${results.length}.png` }).catch(() => {});
       }
     },

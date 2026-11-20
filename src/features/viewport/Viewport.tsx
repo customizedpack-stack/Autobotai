@@ -29,6 +29,7 @@ import type { EnvironmentObjectKind, ObstacleShape } from '../../types/environme
 import { PhysicsDebugView } from '../physics/components/PhysicsDebugView';
 import { SensorRaysView } from '../sensors/components/SensorRaysView';
 import { sensorStream } from '../sensors/stream/sensorStream';
+import { useLearningSession } from '../learning/store/learningSession';
 
 
 /** The component hierarchy, rendered as nested groups from the roots down. */
@@ -46,6 +47,10 @@ function SceneTree() {
   const rootPoses = useRobotStateStore((s) => s.rootPoses);
   const environmentMode = useRobotStateStore((s) => s.mode === 'environment');
   const jointPositions = useRobotStateStore((s) => s.jointPositions);
+  // Phase 11 Reverse Engineering: clicks go to the read-only inspection, never to the Builder selection.
+  const inspecting = useLearningSession((s) => s.inspecting);
+  const inspectedId = useLearningSession((s) => s.inspectedId);
+  const inspect = useLearningSession((s) => s.inspect);
 
   const structure = useMemo(() => {
     const jointsByParent = new Map<string, RobotJoint[]>();
@@ -69,8 +74,9 @@ function SceneTree() {
     shadows,
     showJoints,
     // In the Environment Editor the robot is shown for reference only (not selectable).
-    onSelect: environmentMode ? noop : select,
-    onSelectJoint: environmentMode ? noop : selectJoint,
+    inspectedId: inspecting ? inspectedId : null,
+    onSelect: environmentMode ? noop : inspecting ? inspect : select,
+    onSelectJoint: environmentMode || inspecting ? noop : selectJoint,
     onHover: hover,
   };
 

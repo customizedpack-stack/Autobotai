@@ -1,7 +1,7 @@
 /** Runs every end-to-end suite in sequence. Needs `npm run build` first. */
 import { spawnSync } from 'node:child_process';
 
-const suites = ['workspace.e2e.mjs', 'corrections.e2e.mjs', 'builder.e2e.mjs', 'control.e2e.mjs', 'code-studio.e2e.mjs', 'physics.e2e.mjs', 'sensors.e2e.mjs', 'environment.e2e.mjs', 'verification.e2e.mjs', 'drive-compatibility.e2e.mjs', 'camera.e2e.mjs', 'blueprint.e2e.mjs', 'hardware.e2e.mjs'];
+const suites = ['workspace.e2e.mjs', 'corrections.e2e.mjs', 'builder.e2e.mjs', 'control.e2e.mjs', 'code-studio.e2e.mjs', 'physics.e2e.mjs', 'sensors.e2e.mjs', 'environment.e2e.mjs', 'verification.e2e.mjs', 'drive-compatibility.e2e.mjs', 'camera.e2e.mjs', 'blueprint.e2e.mjs', 'hardware.e2e.mjs', 'learning.e2e.mjs'];
 let failed = 0;
 for (const suite of suites) {
   const result = spawnSync(process.execPath, [`tests/e2e/${suite}`], { stdio: 'inherit' });

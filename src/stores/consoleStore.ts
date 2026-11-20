@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { bus, type BusEnvelope } from '../core/bus/connectorBus';
 import type { LogEntry, LogInput, LogLevel } from '../types/console';
+import { attachConsole } from '../utils/logger';
 
 const MAX_ENTRIES = 500;
 const MAX_EVENTS = 300;
@@ -42,6 +43,8 @@ export function connectConsoleToBus(): void {
   if (connected) return;
   connected = true;
   bus.subscribe('console.log', (input) => useConsoleStore.getState().add(input));
+  // Messages logged before this point (e.g. project migration during store hydration).
+  for (const input of attachConsole()) useConsoleStore.getState().add(input);
   bus.tap((envelope) => {
     if (envelope.channel !== 'console.log') useConsoleStore.getState().addEvent(envelope);
   });

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { toggleWorkspaceMode } from '../features/controls/controlSession';
 import { CAMERA_VIEWS } from '../features/viewport/cameraPresets';
 import { useRobotStateStore } from '../stores/robotStateStore';
+import { useLearningSession } from '../features/learning/store/learningSession';
 import { deleteSelected, duplicateSelected, redo, saveCurrentProject, undo } from '../features/projects/workspaceActions';
 import { useSelectionStore } from '../stores/selectionStore';
 import { saveActiveProgram } from '../features/code-studio/programActions';
@@ -30,6 +31,8 @@ export function useWorkspaceShortcuts(enabled: boolean): void {
       const mode = useRobotStateStore.getState().mode;
       if (mod && key === 's') {
         event.preventDefault();
+        // Phase 11: Reverse Engineering inspection is read-only.
+        if (useLearningSession.getState().inspecting) return;
         // In Code Studio the design is locked, so Ctrl+S saves the open program.
         if (mode === 'code') saveActiveProgram();
         else saveCurrentProject();

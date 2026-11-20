@@ -14,7 +14,7 @@
   --color-accent-soft: rgb(59 130 246 / 0.14);
   --color-ink: #f1f5f9;
   --color-muted: #94a3b8;
-  --color-faint: #64748b;
+  --color-faint: #808ea4; /* Phase 11: was #64748b (3.6:1); now at least 4.5:1 on app, panel and panel-2 backgrounds */
   --color-ok: #22c55e;
   --color-warn: #f59e0b;
   --color-err: #ef4444;
