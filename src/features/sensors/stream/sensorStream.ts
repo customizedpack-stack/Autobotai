@@ -13,15 +13,18 @@ import { RingBuffer } from './ringBuffer';
 
 export const HISTORY_SIZE = 120;
 
-type Listener = (reading: SensorReading) => void;
-
-export class SensorStream {
-  private readonly latestById = new Map<string, SensorReading>();
-  private readonly historyById = new Map<string, RingBuffer<SensorReading>>();
-  private readonly listeners = new Map<string, Set<Listener>>();
+/**
+ * Phase 10: the class is generic so physical telemetry uses its OWN instance
+ * (features/hardware/physicalTelemetry.ts). Physical readings therefore can never
+ * overwrite or mix with simulated readings in this stream.
+ */
+export class SensorStream<R extends { sensorId: string } = SensorReading> {
+  private readonly latestById = new Map<string, R>();
+  private readonly historyById = new Map<string, RingBuffer<R>>();
+  private readonly listeners = new Map<string, Set<(reading: R) => void>>();
 
   /** Store and deliver one reading. A failing listener never stops the others. */
-  publish(reading: SensorReading): void {
+  publish(reading: R): void {
     this.latestById.set(reading.sensorId, reading);
     let history = this.historyById.get(reading.sensorId);
     if (!history) {
@@ -43,7 +46,7 @@ export class SensorStream {
   }
 
   /** Listen to one sensor, or to all with '*'. Returns the unsubscribe function (safe to call twice). */
-  subscribe(sensorId: string, listener: Listener): () => void {
+  subscribe(sensorId: string, listener: (reading: R) => void): () => void {
     let set = this.listeners.get(sensorId);
     if (!set) {
       set = new Set();
@@ -58,11 +61,11 @@ export class SensorStream {
     };
   }
 
-  latest(sensorId: string): SensorReading | undefined {
+  latest(sensorId: string): R | undefined {
     return this.latestById.get(sensorId);
   }
 
-  history(sensorId: string): SensorReading[] {
+  history(sensorId: string): R[] {
     return this.historyById.get(sensorId)?.toArray() ?? [];
   }
 
@@ -85,4 +88,4 @@ export class SensorStream {
   }
 }
 
-export const sensorStream = new SensorStream();
+export const sensorStream = new SensorStream<SensorReading>();

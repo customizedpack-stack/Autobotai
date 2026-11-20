@@ -1,7 +1,7 @@
 {
   "name": "auto-robots-ai",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
@@ -15,7 +15,8 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:e2e": "node tests/e2e/run-all.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "test:firmware": "node firmware/esp32-explorer-bot/test/host/run.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",

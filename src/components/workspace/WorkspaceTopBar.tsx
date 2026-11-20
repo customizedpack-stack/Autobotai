@@ -17,6 +17,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { useBlueprintStore } from '../../features/blueprint/blueprintStore';
+import { EmergencyStopButton } from '../../features/hardware/components/EmergencyStopButton';
 import { setWorkspaceMode } from '../../features/controls/controlSession';
 import { useEnvironmentStore } from '../../features/environment/store/environmentStore';
 import { selectEngine } from '../../features/physics/simulation/simulationManager';
@@ -178,6 +179,7 @@ export function WorkspaceTopBar({ onExit, onOpenSettings }: WorkspaceTopBarProps
         )}
       </nav>
 
+      <EmergencyStopButton />
       <div className="flex items-center gap-0.5">
         <IconButton label="Undo" shortcut="Ctrl+Z" onClick={undo} disabled={!canUndo} data-testid="undo">
           <Undo2 size={15} />

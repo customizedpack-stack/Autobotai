@@ -34,6 +34,18 @@ const TYPE_LABEL: Record<HistoryEventType, string> = {
   'snapshot.restored': 'Version restored',
   undo: 'Undo',
   redo: 'Redo',
+  'hardware.connected': 'Device connected',
+  'hardware.disconnected': 'Device disconnected',
+  'hardware.firmware': 'Firmware detected',
+  'hardware.profile': 'Hardware profile',
+  'hardware.validated': 'Hardware validated',
+  'hardware.calibration': 'Calibration changed',
+  'hardware.fault': 'Hardware fault',
+  'hardware.estop': 'Emergency stop',
+  'program.prepared': 'Program prepared',
+  'program.deployed': 'Program deployed',
+  'program.started': 'Program started (physical)',
+  'program.stopped': 'Program stopped (physical)',
 };
 
 export function HistoryTab({ view }: { view: BlueprintView }) {
@@ -120,6 +132,7 @@ export function HistoryTab({ view }: { view: BlueprintView }) {
                   </p>
                 )}
                 {diff.steps.length > 0 && <p>Guide: {diff.steps.length} step status change(s)</p>}
+                {diff.hardwareProfile && <p>Hardware profile or calibration changed</p>}
               </>
             )}
           </div>

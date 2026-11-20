@@ -2,7 +2,19 @@
 
 A browser-based platform where anyone can design a robot in 3D, program it and test it in a realistic simulation.
 
-**Current status: Phase 9 — Real-World Robotics Blueprint** (on top of Phases 1–8). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, give robots **cameras** that see those environments, and now turn the simulated robot into a **real-world build plan** with verified parts (see `docs/`).
+**Current status: Phase 10 — Real Hardware Integration** (on top of Phases 1–9). You can build robots from parts in 3D, attach parts, define joints, add motors, drive the robot, program it with Blockly blocks or JavaScript, run it in a real physics simulation (Rapier), give it **sensors** (a distance sensor that casts real rays, wheel encoders and an IMU), **build your own test environments** with ground planes, walls, boxes, platforms, ramps and obstacles, give robots **cameras** that see those environments, turn the simulated robot into a **real-world build plan** with verified parts, and now **connect a real ESP32 Explorer Bot over USB** with safety interlocks and an emergency stop (see `docs/`).
+
+## Real hardware (Phase 10)
+
+Read `docs/hardware/SAFETY-AND-EMERGENCY-STOP.md` before you power a real robot. Lift the wheels off the ground for the first tests and keep the motor-power switch within reach.
+
+1. Build the reference robot from `docs/hardware/EXPLORER-BOT-REFERENCE-HARDWARE.md` (ESP32-DevKitC V4, TB6612FNG driver, two DC gearmotors, VL53L0X distance sensor) and flash `firmware/esp32-explorer-bot/` as described in `docs/hardware/ESP32-FIRMWARE-SETUP.md`.
+2. Open **Blueprint → Hardware**. Select the reference profile, enter your power supply, add and confirm the motor-power switch, apply the firmware pin map and validate. Blockers must be fixed and warnings accepted.
+3. Choose **USB serial (Web Serial)** in Chrome or Edge and click **Connect**. The robot is only shown as connected after the firmware handshake. The motors stay disabled.
+4. Confirm the robot is safely positioned and click **Arm motors**. Hold **Forward / Reverse / Turn** for low-speed movement, or build, deploy and start a program on the physical target.
+5. The red **E-STOP** button in the top bar is visible in every mode while a device is connected. A lost connection stops the motors in the firmware and latches a fault that you clear by hand.
+
+Programs keep running in the browser sandbox. Only short, expiring motion commands go to the ESP32; nothing you write is flashed to the robot. Without hardware you can try every step with **Simulated device (no hardware)**, which is labeled as simulated everywhere. Details: `docs/architecture/PHASE-10-HARDWARE-INTEGRATION.md` and `docs/PHASE-10-REPORT.md`.
 
 ## Robot Blueprint (real parts)
 
@@ -116,7 +128,8 @@ To stop the app, click the terminal and press `Ctrl + C`.
 | `npm run typecheck` | TypeScript strict check |
 | `npm run lint` | Lint the code (oxlint) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix, Phase 8 cameras and the Phase 9 Robot Blueprint (needs `npm run build` first and Chrome installed) |
+| `npm run test:e2e` | All browser test suites: Phase 1 journey, Phase 1 corrections, Phase 2 builder, Phase 3 control, Phase 4 Code Studio, Phase 5 physics, Phase 6 sensors, Phase 7 environment editor, the Phase 7 final verification, the drive compatibility fix, Phase 8 cameras, the Phase 9 Robot Blueprint and Phase 10 hardware integration with the simulated device (needs `npm run build` first and Chrome installed) |
+| `npm run test:firmware` | Firmware core tests on this computer (g++): the shared protocol vectors and safety checks. This does not compile for the ESP32 |
 | `npm run check` | Typecheck + lint + unit tests + build in one go |
 
 ## Technology

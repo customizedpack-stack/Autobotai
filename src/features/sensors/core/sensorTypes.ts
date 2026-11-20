@@ -13,7 +13,7 @@ export interface XYZ {
   z: number;
 }
 
-/** Which engine produced the reading. */
+/** Which engine produced the reading. (Physical readings use their own type and stream: features/hardware.) */
 export type SensorSourceKind = 'physics' | 'kinematic';
 
 export interface ReadingBase {

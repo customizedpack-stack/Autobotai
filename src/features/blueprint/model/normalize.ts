@@ -15,6 +15,9 @@ import {
   type PartMapping,
   type StepState,
   type WiringRecord,
+  REFERENCE_PROFILE_ID,
+  defaultHardwareProfile,
+  type HardwareProfile,
 } from './types';
 
 /**
@@ -40,6 +43,8 @@ const EVENT_TYPES = new Set([
   'blueprint.created', 'component.added', 'component.removed', 'part.mapped', 'part.replaced', 'part.unmapped', 'hardware.added', 'hardware.removed',
   'joint.changed', 'motor.changed', 'motor.assigned', 'sensor.changed', 'wiring.updated', 'program.changed', 'simulation.completed', 'bom.generated', 'bom.updated',
   'guide.generated', 'guide.updated', 'step.status', 'snapshot.created', 'snapshot.restored', 'undo', 'redo',
+  'hardware.connected', 'hardware.disconnected', 'hardware.firmware', 'hardware.profile', 'hardware.validated', 'hardware.calibration', 'hardware.fault', 'hardware.estop',
+  'program.prepared', 'program.deployed', 'program.started', 'program.stopped',
 ]);
 
 const str = (v: unknown, max = 500): string => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -57,6 +62,50 @@ function snapshotPart(raw: unknown): CatalogPart | null {
     imageUrl: null,
     source: { ...p.source, url: sanitizeUrl(p.source.url) ?? '' },
     price: p.price ? { ...p.price, url: sanitizeUrl(p.price.url) ?? '' } : null,
+  };
+}
+
+const numOr = (v: unknown, lo: number, hi: number, fallback: number | null): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : fallback);
+
+/** Phase 10 hardware profile: every field validated; unknown values stay unknown (null), never invented. */
+function normalizeProfile(raw: unknown, counter: { dropped: number }): HardwareProfile | null {
+  if (raw === undefined || raw === null) return null;
+  if (!isObj(raw) || typeof raw.referenceId !== 'string' || raw.referenceId !== REFERENCE_PROFILE_ID) {
+    counter.dropped += 1;
+    return null;
+  }
+  const base = defaultHardwareProfile(dateOr(raw.selectedAt, new Date(0).toISOString())!);
+  const ps = isObj(raw.powerSupply) ? raw.powerSupply : {};
+  const lim = isObj(raw.limits) ? raw.limits : {};
+  const cal = isObj(raw.calibration) ? raw.calibration : {};
+  const pos = Array.isArray(cal.sensorPositionMm) && cal.sensorPositionMm.length === 3 && cal.sensorPositionMm.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 5000) ? (cal.sensorPositionMm as [number, number, number]) : null;
+  return {
+    ...base,
+    powerSupply: {
+      kind: ps.kind === 'battery' || ps.kind === 'bench' ? ps.kind : 'unknown',
+      voltageV: numOr(ps.voltageV, 0.1, 60, null),
+      maxCurrentA: numOr(ps.maxCurrentA, 0.01, 100, null),
+      source: str(ps.source, 200),
+    },
+    motorPowerSwitchConfirmed: raw.motorPowerSwitchConfirmed === true,
+    limits: {
+      maxSpeedPermille: Math.round(numOr(lim.maxSpeedPermille, 50, 1000, base.limits.maxSpeedPermille)!),
+      accelPermillePerS: Math.round(numOr(lim.accelPermillePerS, 100, 10000, base.limits.accelPermillePerS)!),
+      maxRunSeconds: Math.round(numOr(lim.maxRunSeconds, 5, 600, base.limits.maxRunSeconds)!),
+    },
+    calibration: {
+      invertLeft: cal.invertLeft === true,
+      invertRight: cal.invertRight === true,
+      pwmMinPermille: Math.round(numOr(cal.pwmMinPermille, 0, 500, 0)!),
+      wheelDiameterMm: numOr(cal.wheelDiameterMm, 5, 1000, null),
+      trackWidthMm: numOr(cal.trackWidthMm, 10, 2000, null),
+      encoderTicksPerRev: numOr(cal.encoderTicksPerRev, 1, 100000, null),
+      distanceOffsetMm: Math.round(numOr(cal.distanceOffsetMm, -500, 500, 0)!),
+      sensorPositionMm: pos,
+      forward: cal.forward === 'x-' ? 'x-' : 'x+',
+      updatedAt: dateOr(cal.updatedAt, null),
+    },
+    acknowledgedWarnings: (Array.isArray(raw.acknowledgedWarnings) ? raw.acknowledgedWarnings : []).filter((x): x is string => typeof x === 'string' && x.length <= 160).slice(0, 100),
   };
 }
 
@@ -163,7 +212,7 @@ function normalizeData(raw: Record<string, unknown>, counter: { dropped: number 
   }
   const guide: GuideState = { generatedAt: dateOr(guideRaw.generatedAt, null), steps };
 
-  return { mappings, hardware, bomExtras, wiring, guide, bomGeneratedAt: dateOr(raw.bomGeneratedAt, null) };
+  return { mappings, hardware, bomExtras, wiring, guide, bomGeneratedAt: dateOr(raw.bomGeneratedAt, null), hardwareProfile: normalizeProfile(raw.hardwareProfile, counter) };
 }
 
 export function normalizeBlueprint(raw: unknown, now: string): NormalizeResult {

@@ -9,6 +9,7 @@ import { pauseProgram, resetRobotFromCodeStudio, resumeProgram, stopProgram } fr
 import { isActiveState, useExecutionStore } from '../runtime/executionStore';
 import type { RobotProgram } from '../storage/programTypes';
 import { ExecutionStatus } from './ExecutionStatus';
+import { ExecutionTargetSelect } from '../../hardware/components/ExecutionTargetSelect';
 
 function ProgramName({ program }: { program: RobotProgram }) {
   const [value, setValue] = useState(program.name);
@@ -78,6 +79,7 @@ export function CodeStudioToolbar({ program }: { program: RobotProgram }) {
       </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-1">
+        <ExecutionTargetSelect disabled={active} />
         <ExecutionStatus />
         <span className="mx-1 h-5 w-px bg-line" />
         <Button size="sm" variant="primary" icon={<Play size={13} />} onClick={() => void runActiveProgram()} disabled={active} data-testid="run-program" title="Run the program (Ctrl+Enter in the code editor)">

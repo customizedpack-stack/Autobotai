@@ -1,0 +1,310 @@
+# AutoBotAI Explorer Bot protocol v1 — conformance vectors.
+#
+# The SAME file is run against:
+#   - the firmware core (C++, test/host/test_core.cpp, `npm run test:firmware`)
+#   - the browser's simulated device (TypeScript, src/features/hardware/tests)
+# so the simulated device cannot drift from the firmware logic.
+#
+# Syntax (one instruction per line):
+#   === <name>              start a new case (fresh core)
+#   BOOT <ms> <poweron|watchdog|other> <seed>
+#   @ <ms>                  advance the clock to <ms> and tick once
+#   ~ <ms> <step>           tick every <step> ms up to <ms> (no host traffic)
+#   ~p <ms> <step>          same, sending "PING n" before each tick (PONG lines are discarded)
+#   > <line>                host sends <line> at the current time ($S = session from the last HELLO_OK)
+#   < <prefix>              the next device line (TEL lines excluded) must start with <prefix>
+#   <! nothing              no device line (TEL excluded) is waiting
+#   ? <k=v> ...             outputs/state: st=, en=, l=, r=
+#   T <k=v> ...             the latest TEL line contains every token
+#   D <mm> <ok|range|err|none>   new distance sample at the current time
+#   CLEAR                   drop waiting device lines
+
+=== safe boot: motors disabled, no session, no telemetry
+BOOT 0 poweron 1234
+< BOOT fw=0.1.0 proto=1 reset=poweron
+? st=idle en=0 l=0 r=0
+@ 500
+<! nothing
+> DRIVE 1 500 500 200
+< ERR code=no_session
+> ARM 00000000
+< ERR code=no_session
+? st=idle en=0 l=0 r=0
+
+=== handshake reports identity and keeps motors disabled
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+< HELLO_OK proto=1 fw=0.1.0 device=explorer-bot-esp32 board=esp32-devkitc-v4 session=
+? st=connected en=0 l=0 r=0
+> HELLO 2
+< ERR code=proto_unsupported
+@ 100
+T st=connected en=0 l=0 r=0
+
+=== drive before arm is refused
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+CLEAR
+> DRIVE 7 300 300 200
+< ERR seq=7 code=not_armed
+@ 50
+? st=connected en=0 l=0 r=0
+
+=== arm requires the current session
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+CLEAR
+> ARM deadbeef
+< ERR code=bad_session
+> ARM $S
+< ARMED
+? st=armed en=1 l=0 r=0
+> ARM $S
+< ERR code=already_armed
+
+=== drive is clamped to the speed limit and ramps up
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG max=300 accel=1500
+> ARM $S
+CLEAR
+> DRIVE 1 1000 -1000 500
+< ACK 1
+@ 100
+? st=armed en=1 l=150 r=-150
+@ 200
+? l=300 r=-300
+@ 300
+? l=300 r=-300
+
+=== drive values out of range are rejected
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> ARM $S
+CLEAR
+> DRIVE 2 1001 0 100
+< ERR seq=2 code=range
+> DRIVE 3 0 0 501
+< ERR seq=3 code=range
+> DRIVE 4 0 0 0
+< ERR seq=4 code=range
+> DRIVE 5 abc 0 100
+< ERR seq=5 code=range
+> DRIVE
+< ERR code=bad_format
+? en=1 l=0 r=0
+
+=== an expired lease stops the motors (command timeout)
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG max=500 accel=10000
+> ARM $S
+CLEAR
+> DRIVE 1 400 400 300
+< ACK 1
+@ 100
+? l=400 r=400
+@ 299
+? l=400 r=400
+@ 300
+< LEASE_EXPIRED
+? st=armed en=1 l=0 r=0
+
+=== lost heartbeat while armed: stop, latched fault, no automatic recovery
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG accel=10000
+> ARM $S
+CLEAR
+> DRIVE 1 250 250 500
+< ACK 1
+@ 100
+? l=250 r=250
+~p 900 100
+< LEASE_EXPIRED
+> DRIVE 2 250 250 500
+< ACK 2
+@ 2000
+< FAULT code=heartbeat_timeout
+? st=fault en=0 l=0 r=0
+> HELLO 1
+< HELLO_OK
+? st=fault en=0 l=0 r=0
+> ARM $S
+< ERR code=fault_active
+> DRIVE 3 250 250 500
+< ERR seq=3 code=not_armed
+> CLEAR_FAULT
+< FAULT_CLEARED
+? st=connected en=0 l=0 r=0
+> ARM $S
+< ARMED
+? st=armed en=1 l=0 r=0
+
+=== lost heartbeat while only connected drops the session
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+CLEAR
+@ 1001
+< LINK_LOST
+? st=idle en=0
+> PING 1
+< ERR code=no_session
+
+=== emergency stop is immediate and latched in every state
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG accel=10000
+> ARM $S
+CLEAR
+> DRIVE 1 300 300 500
+< ACK 1
+@ 50
+? l=300 r=300 en=1
+> ESTOP
+< ESTOP_ACTIVE
+? st=estop en=0 l=0 r=0
+> DRIVE 2 300 300 500
+< ERR seq=2 code=not_armed
+> ARM $S
+< ERR code=estop_active
+> HELLO 1
+< HELLO_OK
+? st=estop en=0
+> RESET_ESTOP
+< ESTOP_CLEARED
+? st=connected en=0 l=0 r=0
+> DRIVE 3 300 300 500
+< ERR seq=3 code=not_armed
+> ARM $S
+< ARMED
+
+=== emergency stop works before any session
+BOOT 0 poweron 1234
+CLEAR
+> ESTOP
+< ESTOP_ACTIVE
+? st=estop en=0
+> RESET_ESTOP
+< ERR code=no_session
+
+=== a watchdog reset boots latched in fault with motors disabled
+BOOT 0 watchdog 1234
+< BOOT fw=0.1.0 proto=1 reset=watchdog
+< FAULT code=watchdog_reset
+? st=fault en=0 l=0 r=0
+> HELLO 1
+< HELLO_OK
+> ARM $S
+< ERR code=fault_active
+
+=== a new HELLO while armed disarms (a new session never inherits motion)
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG accel=10000
+> ARM $S
+CLEAR
+> DRIVE 1 200 200 500
+< ACK 1
+@ 50
+? l=200 r=200
+> HELLO 1
+< HELLO_OK
+? st=connected en=0 l=0 r=0
+
+=== stop and disarm
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG accel=10000
+> ARM $S
+CLEAR
+> DRIVE 1 200 -200 500
+< ACK 1
+@ 50
+? l=200 r=-200
+> STOP
+< STOPPED
+? st=armed en=1 l=0 r=0
+> DISARM
+< DISARMED
+? st=connected en=0 l=0 r=0
+> DISARM
+< ERR code=not_armed
+
+=== configuration is refused while armed and validated
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+CLEAR
+> CONFIG max=1001
+< ERR code=bad_config
+> CONFIG speed=5
+< ERR code=bad_config
+> CONFIG max=200 invl=1 hz=5
+< CONFIG_OK max=200 accel=1500 invl=1 invr=0 hz=5
+> ARM $S
+< ARMED
+> CONFIG max=900
+< ERR code=not_allowed_while_armed
+
+=== motor direction inversion is applied to the outputs
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+> CONFIG max=500 accel=10000 invl=1
+> ARM $S
+CLEAR
+> DRIVE 1 300 300 500
+< ACK 1
+@ 50
+? l=-300 r=300
+
+=== strict input checks (allowlist only)
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+CLEAR
+> GPIO 2 1
+< ERR code=unknown_command
+> EVAL robot.drive()
+< ERR code=unknown_command
+> drive 1 1 1 1
+< ERR code=unknown_command
+> PING 1 2
+< ERR code=bad_format
+> PROGRAM xyz
+< ERR code=bad_format
+> PROGRAM 0a1b2c3d
+< PROGRAM_OK hash=0a1b2c3d
+> STATUS
+< STATUS st=connected en=0 fault=- prog=0a1b2c3d max=300
+
+=== telemetry carries state, outputs and the distance sample
+BOOT 0 poweron 1234
+CLEAR
+> HELLO 1
+D 412 ok
+@ 100
+T st=connected en=0 d=412 ds=ok prog=-
+D 0 range
+@ 200
+T d=-1 ds=range
+D 0 err
+@ 300
+T d=-1 ds=err
+D 500 ok
+@ 400
+T d=500 ds=ok
+@ 1000
+T d=-1 ds=err
