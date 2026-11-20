@@ -59,7 +59,7 @@ export interface BusChannels {
   'command.accepted': { command: RobotCommand };
   'command.rejected': { command: RobotCommand; errors: string[] };
   'command.status': { commandId: string; type: CommandType; status: CommandStatus; detail?: string };
-  'robot.modeChanged': { mode: 'build' | 'control' | 'code' | 'environment' };
+  'robot.modeChanged': { mode: 'build' | 'control' | 'code' | 'environment' | 'blueprint' };
 
   // ── Code Studio (Phase 4). Programs move the robot only through C2 (source 'code'). ──
   'codeStudio.programChanged': { programId: string; projectId: string; change: 'created' | 'saved' | 'renamed' | 'deleted' };

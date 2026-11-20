@@ -104,3 +104,21 @@
 .blocklyToolboxDiv {
   padding-top: 4px;
 }
+
+/* Phase 9: "Print / Save as PDF" in the Blueprint BOM prints only the BOM table. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    color: #000;
+    background: #fff;
+  }
+}

@@ -22,6 +22,8 @@ export function RightPanel({ overlay = false }: { overlay?: boolean }) {
       <span className="mt-3 text-[10px] tracking-widest text-faint uppercase [writing-mode:vertical-rl]">{control ? (mode === 'code' ? 'Status' : 'Control') : 'Properties'}</span>
     </div>
   );
+  // The Robot Blueprint uses the full width beside the viewport.
+  if (mode === 'blueprint') return null;
   if (collapsed) return rail;
 
   const panel = (
